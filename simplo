@@ -1,0 +1,508 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__.'/vendor/autoload.php';
+
+use Illuminate\Filesystem\Filesystem;
+
+$command = $argv[1] ?? 'help';
+
+switch ($command) {
+    case 'clear:env':
+        clearEnvAll();
+        break;
+    case 'copy:vendor':
+        copyVendor();
+        break;
+    case 'example':
+        showManualLibsExample();
+        break;
+    case 'make:theme-config':
+        makeThemeConfig($argv[2] ?? null);
+        break;
+    case 'publish':
+        publish();
+        break;
+    case 'publish:vendor':
+        publishVendor();
+        break;
+    case 'theme:publish':
+        if (($argv[2] ?? '') === '-all') {
+            publishAllThemes();
+        } elseif (!empty($argv[2]) && !empty($argv[3])) {
+            publishSingleTheme($argv[2], $argv[3]);
+        } else {
+            echo "Usage:\n";
+            echo "  theme:publish -all\n";
+            echo "  theme:publish [theme] [system]\n";
+        }
+        break;
+    case 'update':
+        simploUpdate();
+        break;
+    case 'help':
+    default:
+        showHelp();
+        break;
+}
+
+/**
+ * Prints the SIMPLO CLI help screen with all available commands and usage information (A-Z sorted, no sections).
+ *
+ * @return void
+ */
+function showHelp(): void
+{
+    echo "\n";
+    echo "\n";
+    echo "===================================================================================================\n";
+    echo "\n";
+    echo " S I M P L O  --->  by simplySMART\n";
+    echo "\n";
+    echo "\n";
+    echo "Available commands:\n";
+    echo "===================================================================================================\n";
+    echo "  clear:env                          - Clears Laravel (Artisan) cache, config, route and view\n";
+    echo "  copy:vendor                        - Copy the entire package to resources/vendor/{package_name}\n";
+    echo "  example                            - Show an example of simploManualLibs section for package.json\n";
+    echo "  help                               - Show this help message\n";
+    echo "  make:theme-config                  - Create a config/themes.php file with a sample theme configuration\n";
+    echo "  publish                            - Publish vendor and then run composer update\n";
+    echo "  publish:vendor                     - Publish vendor from resources/vendor to public/vendor\n";
+    echo "  theme:publish -all                 - Publish all themes from config/themes.php to public/\n";
+    echo "  theme:publish [theme] [system]     - Publish a single theme, e.g.: theme:publish bubble smartpanel\n";
+    echo "  update                             - Run npm update and auto-copy all libraries to resources/vendor/{package_name}\n";
+    echo "\n";
+    echo "\n";
+}
+
+/**
+ * Clears all Laravel caches using Artisan commands with a visual progress bar.
+ *
+ * This function runs the following Artisan commands in sequence:
+ *  - php artisan cache:clear   (clears the application cache)
+ *  - php artisan config:clear  (clears the configuration cache)
+ *  - php artisan route:clear   (clears the route cache)
+ *  - php artisan view:clear    (clears the view cache)
+ *
+ * It provides a progress bar for each step using the progressBar() function.
+ *
+ * Example usage:
+ *   ./simplo clear:env -all
+ *
+ * @return void
+ */
+function clearEnvAll(): void
+{
+    $steps = [
+        ['cmd' => 'php artisan cache:clear',  'desc' => 'Clearing application cache'],
+        ['cmd' => 'php artisan config:clear', 'desc' => 'Clearing config cache'],
+        ['cmd' => 'php artisan route:clear',  'desc' => 'Clearing route cache'],
+        ['cmd' => 'php artisan view:clear',   'desc' => 'Clearing view cache'],
+    ];
+
+    echo "Laravel cache cleanup in progress...\n";
+
+    foreach ($steps as $step) {
+        echo $step['desc'] . "\n";
+        // Simulated 0–100% progress bar
+        for ($i = 50; $i <= 100; $i++) {
+            usleep(1); // adjust speed here (microseconds)
+            progressBar($i, 100, $step['desc']);
+        }
+
+        // Now run the Artisan command
+        passthru($step['cmd']);
+    }
+
+    echo "All Laravel caches have been cleared!\n\n";
+}
+
+
+/**
+ * Recursively copies files from a source directory to a destination directory, showing a progress bar.
+ *
+ * @param string $src Source directory
+ * @param string $dst Destination directory
+ * @param Filesystem $fs Filesystem instance
+ * @param string $pkg Package name (for display in progress bar)
+ * @return int Number of copied files
+ */
+function copyDirWithProgress(string $src, string $dst, Filesystem $fs, string $pkg): int
+{
+    $src = rtrim($src, DIRECTORY_SEPARATOR);
+
+    $rii = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($src, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+    $files = [];
+    foreach ($rii as $item) {
+        if ($item->isFile()) {
+            $files[] = $item;
+        }
+    }
+    $total = count($files);
+    $done = 0;
+    foreach ($files as $item) {
+        $targetPath = $dst . DIRECTORY_SEPARATOR . ltrim(substr($item->getPathname(), strlen($src)), DIRECTORY_SEPARATOR);
+        $fs->ensureDirectoryExists(dirname($targetPath));
+        $fs->copy($item->getPathname(), $targetPath);
+        $done++;
+        progressBar($done, $total, $pkg);
+    }
+    echo "\n";
+    return $total;
+}
+
+/**
+ * Copies all dependencies and manual libraries from node_modules to resources/vendor.
+ *
+ * @return void
+ */
+function copyVendor(): void
+{
+    $base = __DIR__;
+    $fs = new Filesystem();
+
+    $packageJson = json_decode(file_get_contents($base . '/package.json'), true);
+    if (!isset($packageJson['dependencies']) || !is_array($packageJson['dependencies'])) {
+        echo "Missing 'dependencies' section in package.json!\n";
+        return;
+    }
+
+    $manualLibs = $packageJson['simploManualLibs'] ?? [];
+    $deps = array_keys($packageJson['dependencies']);
+    $copiedCount = 0;
+
+    // Handle dependencies first
+    foreach ($deps as $pkg) {
+        $pkgPath = "$base/node_modules/$pkg";
+        $dstPath = "$base/resources/vendor/$pkg";
+
+        if (is_dir($pkgPath)) {
+            if (is_dir($dstPath)) {
+                $fs->deleteDirectory($dstPath);
+            }
+            $fileCount = copyDirWithProgress($pkgPath, $dstPath, $fs, $pkg);
+            echo "Copied $pkg ($fileCount files)\n";
+            $copiedCount++;
+        } else {
+            echo "Not found in node_modules: $pkg\n";
+        }
+    }
+
+    // Handle manual libraries
+    foreach ($manualLibs as $entry) {
+        if (!isset($entry['package'], $entry['path'])) continue;
+        $pkg = $entry['package'];
+        $path = $entry['path'];
+        $pkgPath = "$base/node_modules/$pkg";
+        $customPath = "$pkgPath/$path";
+        $dstPath = "$base/resources/vendor/$pkg";
+        if (is_dir($customPath)) {
+            if (is_dir($dstPath)) {
+                $fs->deleteDirectory($dstPath);
+            }
+            $fileCount = copyDirWithProgress($customPath, $dstPath, $fs, "$pkg:$path");
+            echo "Copied (manual) $pkg:$path ($fileCount files)\n";
+            $copiedCount++;
+        } else {
+            echo "Not found: $path in $pkg (manual)\n";
+        }
+    }
+
+    echo "\nCopied $copiedCount packages.\n";
+}
+
+/**
+ * Creates a sample config/themes.php configuration file for themes.
+ * If the file already exists, it will not be overwritten unless --force is specified.
+ *
+ * @param string|null $force Use "--force" to overwrite existing config/themes.php
+ * @return void
+ */
+function makeThemeConfig(string $force = null): void
+{
+    $base = __DIR__;
+    $configDir = $base . '/config';
+    $configFile = $configDir . '/themes.php';
+
+    if (file_exists($configFile) && $force !== '--force') {
+        echo "File config/themes.php already exists. Use --force to overwrite.\n";
+        return;
+    }
+
+    if (!is_dir($configDir)) {
+        mkdir($configDir, 0755, true);
+    }
+
+    $content = <<<PHP
+<?php
+/*
+ * Copyright (c) 2014-2025. simplySMART
+ */
+
+
+
+return [
+     'smartpanel' => [
+        'default' => 'bubble',
+        'themes' => [
+            'classic' => [
+                'name' => 'Classic',
+                'source_path' => 'vendor/simplysmart/smartpanel/src/resources/themes/smartpanel/classic',
+                'public_path' => 'simplysmart/smartpanel/themes/classic/',
+                'assets_file' => 'theme_assets.json',
+                'default_mode' => 'light',
+            ],
+            'bubble' => [
+                'name' => 'Bubble',
+                'source_path' => 'vendor/simplysmart/smartpanel/src/resources/themes/smartpanel/bubble',
+                'public_path' => 'simplysmart/smartpanel/themes/bubble/',
+                'assets_file' => 'theme_assets.json',
+                'default_mode' => 'light',
+            ],
+            // next themes
+        ],
+    ],
+    // next apps
+];
+PHP;
+
+    file_put_contents($configFile, $content);
+    echo "Created config/themes.php\n";
+}
+
+/**
+ * Shows a progress bar for vendor package copying.
+ *
+ * @param int $done   Number of files copied so far
+ * @param int $total  Total number of files to copy
+ * @param string $pkg Package name (for display)
+ * @return void
+ */
+function progressBar(int $done, int $total, string $pkg = ''): void
+{
+    $width = 30;
+    $perc = ($total > 0) ? round(($done / $total) * 100) : 100;
+    $bars = ($total > 0) ? floor(($done / $total) * $width) : $width;
+    $line = str_repeat('=', $bars);
+    $space = str_repeat(' ', $width - $bars);
+    $percentStr = str_pad($perc, 3, ' ', STR_PAD_LEFT);
+    printf("\r[%s%s] %s%% %s", $line, $space, $percentStr, $pkg);
+    if ($done === $total) {
+        echo " ✓";
+    }
+}
+
+/**
+ * Publishes vendor libraries to public/vendor, runs composer update,
+ * and clears all Laravel caches (cache, config, route, view).
+ *
+ * This function performs the following actions in sequence:
+ * 1. Publishes vendor libraries from resources/vendor to public/vendor.
+ * 2. Runs `composer update` to update PHP dependencies.
+ * 3. Clears all Laravel caches using Artisan commands.
+ *
+ * @return void
+ */
+function publish(): void
+{
+    echo "Publishing vendor to public/vendor...\n";
+    publishVendor();
+    echo "Vendor has been published.\n";
+
+    echo "Running composer update...\n";
+    passthru('composer update');
+    echo "Composer update finished.\n";
+
+    echo "Clearing Laravel caches...\n";
+    clearEnvAll();
+
+    echo "Laravel caches cleared. Environment is refreshed.\n";
+}
+
+/**
+ * Copies all vendor libraries from resources/vendor to public/vendor.
+ *
+ * @return void
+ */
+function publishVendor(): void
+{
+    $base = __DIR__;
+    $fs = new Filesystem();
+
+    $src = "$base/resources/vendor";
+    $dst = "$base/public/vendor";
+    $fs->ensureDirectoryExists($dst);
+
+    $rii = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($src, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+    foreach ($rii as $file) {
+        if ($file->isFile()) {
+            $relPath = substr($file->getPathname(), strlen($src) + 1);
+            $target = "$dst/$relPath";
+            $fs->ensureDirectoryExists(dirname($target));
+            $fs->copy($file, $target);
+        }
+    }
+    echo "Libraries published to public/vendor/!\n";
+
+    echo "Clearing Laravel caches...\n";
+    clearEnvAll();
+
+    echo "Laravel caches cleared. Environment is refreshed.\n";
+}
+
+/**
+ * Publishes all themes defined in config/themes.php to public/.
+ *
+ * @return void
+ */
+function publishAllThemes(): void
+{
+    $base = __DIR__;
+    $fs = new Filesystem();
+
+    $configPath = $base . '/config/themes.php';
+    if (!file_exists($configPath)) {
+        echo "File config/themes.php not found!\n";
+        return;
+    }
+
+    $themesConfig = include $configPath;
+    if (!is_array($themesConfig) || empty($themesConfig)) {
+        echo "No themes configuration found!\n";
+        return;
+    }
+
+    foreach ($themesConfig as $system => $sysConf) {
+        if (!isset($sysConf['themes']) || !is_array($sysConf['themes'])) {
+            continue;
+        }
+        foreach ($sysConf['themes'] as $theme => $themeConf) {
+            publishSingleTheme($theme, $system, false); // false = suppress log header
+        }
+    }
+    echo "All themes have been published.\n";
+
+    echo "Clearing Laravel caches...\n";
+    clearEnvAll();
+
+    echo "Laravel caches cleared. Environment is refreshed.\n";
+}
+
+/**
+ * Publishes a single theme for a specific system as defined in config/themes.php.
+ * If the theme or system is not provided, defaults are used if available.
+ *
+ * @param string|null $theme  Theme name (as in config/themes.php)
+ * @param string|null $system System name (as in config/themes.php)
+ * @param bool $logHeader     Whether to print log header (default: true)
+ * @return void
+ */
+function publishSingleTheme(string $theme = null, string $system = null, bool $logHeader = true): void
+{
+    $base = __DIR__;
+    $fs = new Filesystem();
+
+    $configPath = $base . '/config/themes.php';
+    if (!file_exists($configPath)) {
+        if ($logHeader)
+            echo "File config/themes.php not found!\n";
+        return;
+    }
+
+    $themesConfig = include $configPath;
+    if (!is_array($themesConfig) || empty($themesConfig)) {
+        if ($logHeader)
+            echo "No themes configuration found!\n";
+        return;
+    }
+
+    // Use first system if none provided
+    if (!$system) {
+        $system = array_key_first($themesConfig);
+        if ($logHeader)
+            echo "No system specified, using: $system\n";
+    }
+    if (!isset($themesConfig[$system])) {
+        if ($logHeader)
+            echo "System '$system' does not exist in config/themes.php!\n";
+        return;
+    }
+
+    $sysConf = $themesConfig[$system];
+
+    // Use default theme if none provided
+    if (!$theme) {
+        $theme = $sysConf['default'] ?? null;
+        if ($logHeader)
+            echo "No theme specified, using default: $theme\n";
+    }
+    if (!$theme || !isset($sysConf['themes'][$theme])) {
+        if ($logHeader)
+            echo "Theme '$theme' does not exist in system '$system'!\n";
+        return;
+    }
+
+    $themeConf = $sysConf['themes'][$theme];
+
+    // Clean up slashes in paths
+    $source = $base . '/' . rtrim(($themeConf['source_path'] ?? ''), '/\\');
+    $public = $base . '/public/' . rtrim(($themeConf['public_path'] ?? ''), '/\\');
+
+    if (!is_dir($source)) {
+        if ($logHeader)
+            echo "Source directory not found: $source\n";
+        return;
+    }
+
+    // Remove target directory if exists
+    if (is_dir($public)) {
+        $fs->deleteDirectory($public);
+    }
+    $fs->ensureDirectoryExists($public);
+
+    // Copy all contents from source_path to public_path
+    $fileCount = copyDirWithProgress($source, $public, $fs, "$system:$theme");
+    if ($logHeader)
+        echo "Theme '$theme' for system '$system' has been published ($fileCount files)\n";
+}
+
+/**
+ * Displays an example snippet for the simploManualLibs section in package.json.
+ *
+ * @return void
+ */
+function showManualLibsExample(): void
+{
+    echo <<<EXAMPLE
+"simploManualLibs": [
+  {
+    "package": "font-awesome",
+    "path": "."         // will copy the entire node_modules/font-awesome package
+  },
+  {
+    "package": "@popperjs/core",
+    "path": "lib"       // will copy only the 'lib' directory from @popperjs/core
+  }
+]
+EXAMPLE;
+    echo "\n";
+}
+
+/**
+ * Runs npm update and then copies all dependencies and manual libraries to resources/vendor.
+ *
+ * @return void
+ */
+function simploUpdate(): void
+{
+    echo "Running npm update...\n";
+    system("npm update");
+    copyVendor();
+}
