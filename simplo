@@ -3,6 +3,7 @@
 
 require __DIR__.'/vendor/autoload.php';
 
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Filesystem\Filesystem;
 
 $command = $argv[1] ?? 'help';
@@ -16,6 +17,19 @@ switch ($command) {
         break;
     case 'example':
         showManualLibsExample();
+        break;
+    case 'install':
+        if (empty($argv[2])) {
+            echo "Usage: php simplo install [ModuleName]\n";
+            exit(1);
+        }else{
+            echo "Checkin: php simplo install [ModuleName]\n";
+        }
+        try {
+            installModule($argv[2]);
+        } catch (FileNotFoundException $e) {
+            echo "Failed: php simplo install [ModuleName]\n";
+        }
         break;
     case 'make:theme-config':
         makeThemeConfig($argv[2] ?? null);
@@ -58,6 +72,7 @@ function showHelp(): void
     echo "===================================================================================================\n";
     echo "\n";
     echo " S I M P L O  --->  by simplySMART\n";
+    echo " Author: Marcin Ulezalka\n";
     echo "\n";
     echo "\n";
     echo "Available commands:\n";
@@ -66,6 +81,7 @@ function showHelp(): void
     echo "  copy:vendor                        - Copy the entire package to resources/vendor/{package_name}\n";
     echo "  example                            - Show an example of simploManualLibs section for package.json\n";
     echo "  help                               - Show this help message\n";
+    echo "  install [module]                   - Install dev_module/{module} using its .templates and Installer\n";
     echo "  make:theme-config                  - Create a config/themes.php file with a sample theme configuration\n";
     echo "  publish                            - Publish vendor and then run composer update\n";
     echo "  publish:vendor                     - Publish vendor from resources/vendor to public/vendor\n";
@@ -213,6 +229,214 @@ function copyVendor(): void
     }
 
     echo "\nCopied $copiedCount packages.\n";
+}
+
+/**
+ * Generates the routing file for a dev module.
+ *
+ * If .templates/routes/{{ studly_name }}.php exists, it's copied to
+ * dev_modules/{module}/src/routes/{snake_case}.php with all placeholders replaced.
+ * If not, a default Laravel-style route group with WelcomeController is created.
+ *
+ * @param string                                $moduleName
+ * @param string                                $basePath
+ * @param Illuminate\Filesystem\Filesystem      $filesystem
+ * @return void
+ */
+function generateRouteFile(string $moduleName, string $basePath, Illuminate\Filesystem\Filesystem $filesystem): void
+{
+    $studly = ucfirst($moduleName);
+    $snake  = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $studly));
+    $kebab  = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $studly));
+
+    $templatePath = "$basePath/dev_modules/.templates/routes/{{ studly_name }}.php"; // 🔁 poprawiona ścieżka
+    $targetDir    = "$basePath/dev_modules/$moduleName/src/routes";
+    $targetFile   = "$targetDir/$snake.php";
+
+    $filesystem->makeDirectory($targetDir, 0755, true, true); // ignoreExisting = true
+
+    if ($filesystem->exists($templatePath)) {
+        try {
+            $filesystem->copy($templatePath, $targetFile);
+            $contents = $filesystem->get($targetFile);
+
+            $placeholders = [
+                '{{ StudlyName }}'       => $studly,
+                '{{ studly_name }}'      => lcfirst($studly),
+                '{{ snake_case_name }}'  => $snake,
+                '{{ kebab_case_name }}'  => $kebab,
+            ];
+
+            $filesystem->put($targetFile, strtr($contents, $placeholders));
+            echo "✅ Route file generated from template: $targetFile\n";
+        } catch (\Illuminate\Contracts\Filesystem\FileNotFoundException $e) {
+            echo "❌ Could not read route template: {$e->getMessage()}\n";
+        }
+    } else {
+        $default = <<<PHP
+<?php
+
+use Illuminate\Support\Facades\Route;
+use Webemo\\$studly\\App\Http\Controllers\\WelcomeController;
+
+Route::prefix('$kebab')
+    ->middleware('guest')
+    ->as('$kebab.')
+    ->group(function () {
+        Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
+    });
+PHP;
+
+        $filesystem->put($targetFile, $default);
+        echo "🆕 Route file auto-created: $targetFile\n";
+    }
+}
+
+
+
+function generateFullComposerForModule(string $moduleName): void
+{
+    $studly = ucfirst($moduleName);
+    $snakePack  = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $moduleName));
+    $vendorPath = "Webemo\\$studly\\";
+    $basePath   = __DIR__ . "/dev_modules/$moduleName";
+
+    $composer = [
+        "name" => "webemo/$snakePack",
+        "type" => "package",
+        "description" => "Create by Simplo: $studly Service module",
+        "keywords" => ["webemo", "dbm", $snakePack],
+        "license" => "proprietary",
+        "require" => [
+            "php" => "^8.2",
+            "webemo/smartmanager"=> "*",
+        ],
+        "autoload" => [
+            "psr-4" => [
+                "$vendorPath" => "src/",
+                "{$vendorPath}App\\" => "src/app/",
+                "{$vendorPath}Database\\" => "src/database/",
+                "{$vendorPath}Database\\Seeders\\" => "src/database/seeders"
+            ],
+            "files" => [
+                "src/app/Functions/{$studly}Functions.php"
+            ]
+        ],
+        "scripts" => [
+            "test" => "pest"
+        ],
+        "extra" => [
+            "laravel" => [
+                "providers" => [
+                    "{$vendorPath}App\\Providers\\{$studly}Provider"
+                ],
+                "aliases" => [
+
+                ]
+            ]
+        ],
+        "config" => [
+            "optimize-autoloader" => true,
+            "preferred-install" => "dist",
+            "sort-packages" => true
+        ],
+        "minimum-stability" => "stable",
+        "prefer-stable" => true
+    ];
+
+    $filesystem = new Illuminate\Filesystem\Filesystem();
+    $filesystem->ensureDirectoryExists($basePath);
+    $filesystem->put("$basePath/composer.json", json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+    echo "📄 composer.json created for module: $moduleName\n";
+}
+
+function createEmptyReadme(string $moduleName): void
+{
+    $destinationRoot = __DIR__ . "/dev_modules/$moduleName";
+    $filesystem = new Illuminate\Filesystem\Filesystem();
+
+    $filesystem->put("$destinationRoot/README.md", '');
+    echo "📘 Empty README.md created for $moduleName\n";
+}
+
+
+
+/**
+ * Installs a dev module by name from .templates structure.
+ *
+ * Copies the entire .templates/ structure into dev_modules/{module},
+ * including src, routes, resources, .gitignore, and stub files.
+ * Replaces placeholders like {{ StudlyName }}, {{ kebab_name }}, etc.
+ * Renames template files and prepares composer.json and routing.
+ *
+ * @throws FileNotFoundException
+ */
+function installModule(string $moduleName): void
+{
+    $basePath        = __DIR__;
+    $filesystem      = new Illuminate\Filesystem\Filesystem();
+
+    // 🧱 Ścieżki źródłowe i docelowe
+    $templateSource  = "$basePath/dev_modules/.templates";
+    $destinationRoot = "$basePath/dev_modules/$moduleName";
+
+    // 🔡 Nazewnictwo
+    $studly = ucfirst($moduleName);
+    $snake  = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $studly));
+    $kebab  = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $studly));
+
+    // 📂 Weryfikacja obecności szablonu
+    if (!$filesystem->isDirectory($templateSource)) {
+        echo "❌ Templates not found in $templateSource\n";
+        return;
+    }
+
+    // 🚫 Blokuj nadpisanie istniejącego modułu
+    if ($filesystem->isDirectory($destinationRoot)) {
+        echo "⚠️ Module already exists: $moduleName\n";
+        return;
+    }
+
+    // 📦 Skopiuj całą strukturę .templates (src, routes, resources, itd.)
+    $filesystem->copyDirectory($templateSource, $destinationRoot);
+    echo "✅ Full template structure copied to $destinationRoot\n";
+
+    // 📘 Stwórz pusty README
+    createEmptyReadme($moduleName);
+
+    // ✏️ Podmień wszystkie placeholdery w całej strukturze
+    try {
+        replacePlaceholders($destinationRoot, $moduleName);
+    } catch (FileNotFoundException $e) {
+        echo "❌ Placeholder replacement failed: {$e->getMessage()}\n";
+        return;
+    }
+
+    // 🧩 Zmień nazwy szablonowych plików (np. NewPackage → Smartpack)
+    renameFilesToMatchModule($destinationRoot, $moduleName);
+
+    // 📄 Stwórz composer.json w katalogu modułu
+    generateFullComposerForModule($moduleName);
+
+    // 🛣️ Wygeneruj domyślny plik route w src/routes/
+    generateRouteFile($moduleName, $basePath, $filesystem);
+
+    // 📄 Skopiuj .gitignore jeśli istnieje
+    $gitignore = "$templateSource/.gitignore";
+    if ($filesystem->exists($gitignore)) {
+        $filesystem->copy($gitignore, "$destinationRoot/.gitignore");
+        echo "📄 Copied .gitignore to module root\n";
+    }
+
+    // ⚙️ Wywołaj installer, jeśli istnieje dla danego modułu
+    $installerClass = "DevModules\\$moduleName\\App\\Installers\\{$moduleName}Installer";
+    if (class_exists($installerClass)) {
+        (new $installerClass())->install();
+        echo "⚙️ Installer $installerClass executed.\n";
+    } else {
+        echo "🔍 No installer class found for $moduleName. Skipped.\n";
+    }
 }
 
 /**
@@ -472,6 +696,75 @@ function publishSingleTheme(string $theme = null, string $system = null, bool $l
     if ($logHeader)
         echo "Theme '$theme' for system '$system' has been published ($fileCount files)\n";
 }
+
+function renameFilesToMatchModule(string $targetFolder, string $moduleName): void
+{
+    $filesystem = new Illuminate\Filesystem\Filesystem();
+    $studly = ucfirst($moduleName);
+
+    $files = $filesystem->allFiles($targetFolder);
+
+    foreach ($files as $file) {
+        $oldPath = $file->getPathname();
+        $oldName = $file->getFilename();
+
+        // Zamień np. NewPackageProvider.php na SmartpackProvider.php
+        if (str_contains($oldName, 'NewPackage')) {
+            $newName = str_replace('NewPackage', $studly, $oldName);
+            $newPath = $file->getPath() . DIRECTORY_SEPARATOR . $newName;
+            $filesystem->move($oldPath, $newPath);
+            echo "📦 Renamed file: $oldName → $newName\n";
+        }
+
+        // Opcjonalnie: zamień {{ StudlyName }} w nazwie pliku
+        if (str_contains($oldName, '{{ StudlyName }}')) {
+            $newName = str_replace('{{ StudlyName }}', $studly, $oldName);
+            $newPath = $file->getPath() . DIRECTORY_SEPARATOR . $newName;
+            $filesystem->move($oldPath, $newPath);
+            echo "📦 Renamed template file: $oldName → $newName\n";
+        }
+    }
+}
+
+/**
+ * @throws FileNotFoundException
+ */
+function replacePlaceholders(string $targetFolder, string $moduleName): void
+{
+    $filesystem = new Illuminate\Filesystem\Filesystem();
+
+    $studly = ucfirst($moduleName);
+    $replacements = [
+        '{{ StudlyName }}'            => $studly,
+        '{{ snake_name }}'            => strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $moduleName)),
+        '{{ kebab_name }}'            => strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $moduleName)),
+
+        'NewPackage'                  => $studly,
+        'newpackage'                  => strtolower($moduleName),
+
+        // Zmiana namespace'u na nazwę pakietu
+//        'Webemo\\Servicemanager\\'    => "Webemo\\{$studly}\\",
+//        'webemo/servicemanager'       => "webemo/" . strtolower($moduleName),
+//        'ServicemanagerProvider'      => "{$studly}Provider",
+//        'Servicemanager'              => $studly,
+//        'servicemanager'              => strtolower($moduleName)
+    ];
+
+    $files = $filesystem->allFiles($targetFolder);
+
+    foreach ($files as $file) {
+        $content = $filesystem->get($file->getPathname());
+
+        foreach ($replacements as $search => $replace) {
+            $content = str_replace($search, $replace, $content);
+        }
+
+        $filesystem->put($file->getPathname(), $content);
+    }
+
+    echo "✏️ Placeholders replaced in $targetFolder.\n";
+}
+
 
 /**
  * Displays an example snippet for the simploManualLibs section in package.json.
