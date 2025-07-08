@@ -1,0 +1,39 @@
+{
+    "name": "simplysmart/simplo",
+    "type": "project",
+    "description": "The cli application for the simplySMART framework",
+    "keywords": ["simplySMART", "framework", "simplo", "cli"],
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Simplysmart\\Simplo\\": "src/",
+            "Simplysmart\\Simplo\\simplysmart\\": "src/simplysmart/",
+            "Simplysmart\\Simplo\\WebemoDbm\\": "src/webemo_dbm/",
+            "Simplysmart\\Simplo\\WebemoWebeshop\\": "src/webemo_webeshop/"
+        },
+        "files": [
+
+        ]
+    },
+    "scripts": {
+        "test": "pest"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Simplysmart\\Simplo\\App\\Providers\\SimploProvider"
+            ],
+            "aliases": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
