@@ -5,6 +5,7 @@ require __DIR__.'/vendor/autoload.php';
 
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Str;
 
 $command = $argv[1] ?? 'help';
 
@@ -269,7 +270,7 @@ function generateRouteFile(string $moduleName, string $basePath, Illuminate\File
 
             $filesystem->put($targetFile, strtr($contents, $placeholders));
             echo "✅ Route file generated from template: $targetFile\n";
-        } catch (\Illuminate\Contracts\Filesystem\FileNotFoundException $e) {
+        } catch (FileNotFoundException $e) {
             echo "❌ Could not read route template: {$e->getMessage()}\n";
         }
     } else {
@@ -363,73 +364,66 @@ function createEmptyReadme(string $moduleName): void
 
 
 /**
- * Installs a dev module by name from .templates structure.
+ * Installs a development module by copying and customizing a template structure.
  *
- * Copies the entire .templates/ structure into dev_modules/{module},
- * including src, routes, resources, .gitignore, and stub files.
- * Replaces placeholders like {{ StudlyName }}, {{ kebab_name }}, etc.
- * Renames template files and prepares composer.json and routing.
+ * This function performs the following steps:
+ * - Copies the entire `.templates/` directory into `dev_modules/{moduleName}`.
+ * - Creates an empty README file for the module.
+ * - Replaces placeholders inside all files in the new module directory with names based on $moduleName.
+ * - Renames files and directories in the module directory to match $moduleName conventions.
+ * - Generates a composer.json file tailored for the module.
+ * - Generates a default route file inside `src/routes/` for the module.
+ * - Copies `.gitignore` file from the templates if it exists.
+ * - Attempts to run an installer class specific to the module if present.
  *
- * @throws FileNotFoundException
+ * @param string $moduleName The name of the module to install.
+ *
+ * @throws Illuminate\Contracts\Filesystem\FileNotFoundException When placeholder replacement fails due to missing files.
+ * @return void
  */
 function installModule(string $moduleName): void
 {
-    $basePath        = __DIR__;
-    $filesystem      = new Illuminate\Filesystem\Filesystem();
+    $basePath   = __DIR__;
+    $fs         = new Illuminate\Filesystem\Filesystem();
 
-    // 🧱 Ścieżki źródłowe i docelowe
     $templateSource  = "$basePath/dev_modules/.templates";
     $destinationRoot = "$basePath/dev_modules/$moduleName";
 
-    // 🔡 Nazewnictwo
-    $studly = ucfirst($moduleName);
-    $snake  = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $studly));
-    $kebab  = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $studly));
-
-    // 📂 Weryfikacja obecności szablonu
-    if (!$filesystem->isDirectory($templateSource)) {
+    if (!$fs->isDirectory($templateSource)) {
         echo "❌ Templates not found in $templateSource\n";
         return;
     }
 
-    // 🚫 Blokuj nadpisanie istniejącego modułu
-    if ($filesystem->isDirectory($destinationRoot)) {
+    if ($fs->isDirectory($destinationRoot)) {
         echo "⚠️ Module already exists: $moduleName\n";
         return;
     }
 
-    // 📦 Skopiuj całą strukturę .templates (src, routes, resources, itd.)
-    $filesystem->copyDirectory($templateSource, $destinationRoot);
+    $fs->copyDirectory($templateSource, $destinationRoot);
     echo "✅ Full template structure copied to $destinationRoot\n";
 
-    // 📘 Stwórz pusty README
     createEmptyReadme($moduleName);
 
-    // ✏️ Podmień wszystkie placeholdery w całej strukturze
     try {
-        replacePlaceholders($destinationRoot, $moduleName);
+        // Tu podmieniamy placeholdery w zawartości plików
+        replaceInFileContents($destinationRoot, $moduleName);
     } catch (FileNotFoundException $e) {
         echo "❌ Placeholder replacement failed: {$e->getMessage()}\n";
         return;
     }
 
-    // 🧩 Zmień nazwy szablonowych plików (np. NewPackage → Smartpack)
-    renameFilesToMatchModule($destinationRoot, $moduleName);
+    // Zmieniamy nazwy plików i katalogów
+    renameFilesAndDirs($destinationRoot, $moduleName);
 
-    // 📄 Stwórz composer.json w katalogu modułu
     generateFullComposerForModule($moduleName);
+    //generateRouteFile($moduleName, $basePath, $fs);
 
-    // 🛣️ Wygeneruj domyślny plik route w src/routes/
-    generateRouteFile($moduleName, $basePath, $filesystem);
-
-    // 📄 Skopiuj .gitignore jeśli istnieje
     $gitignore = "$templateSource/.gitignore";
-    if ($filesystem->exists($gitignore)) {
-        $filesystem->copy($gitignore, "$destinationRoot/.gitignore");
+    if ($fs->exists($gitignore)) {
+        $fs->copy($gitignore, "$destinationRoot/.gitignore");
         echo "📄 Copied .gitignore to module root\n";
     }
 
-    // ⚙️ Wywołaj installer, jeśli istnieje dla danego modułu
     $installerClass = "DevModules\\$moduleName\\App\\Installers\\{$moduleName}Installer";
     if (class_exists($installerClass)) {
         (new $installerClass())->install();
@@ -438,6 +432,7 @@ function installModule(string $moduleName): void
         echo "🔍 No installer class found for $moduleName. Skipped.\n";
     }
 }
+
 
 /**
  * Creates a sample config/themes.php configuration file for themes.
@@ -697,72 +692,102 @@ function publishSingleTheme(string $theme = null, string $system = null, bool $l
         echo "Theme '$theme' for system '$system' has been published ($fileCount files)\n";
 }
 
-function renameFilesToMatchModule(string $targetFolder, string $moduleName): void
+function getReplacements(string $moduleName): array
 {
-    $filesystem = new Illuminate\Filesystem\Filesystem();
-    $studly = ucfirst($moduleName);
+    $studly = Str::studly($moduleName);
+    $snake  = Str::snake($moduleName);
+    $kebab  = Str::kebab($moduleName);
+    $flat   = Str::lower($moduleName);
 
-    $files = $filesystem->allFiles($targetFolder);
-
-    foreach ($files as $file) {
-        $oldPath = $file->getPathname();
-        $oldName = $file->getFilename();
-
-        // Zamień np. NewPackageProvider.php na SmartpackProvider.php
-        if (str_contains($oldName, 'NewPackage')) {
-            $newName = str_replace('NewPackage', $studly, $oldName);
-            $newPath = $file->getPath() . DIRECTORY_SEPARATOR . $newName;
-            $filesystem->move($oldPath, $newPath);
-            echo "📦 Renamed file: $oldName → $newName\n";
-        }
-
-        // Opcjonalnie: zamień {{ StudlyName }} w nazwie pliku
-        if (str_contains($oldName, '{{ StudlyName }}')) {
-            $newName = str_replace('{{ StudlyName }}', $studly, $oldName);
-            $newPath = $file->getPath() . DIRECTORY_SEPARATOR . $newName;
-            $filesystem->move($oldPath, $newPath);
-            echo "📦 Renamed template file: $oldName → $newName\n";
-        }
-    }
+    return [
+        '{{ StudlyName }}'  => $studly,
+        '{{ studly_name }}' => $kebab,
+        '{{ snake_name }}'  => $snake,
+        '{{ kebab_name }}'  => $kebab,
+        '__StudlyName__'    => $studly,
+        '__studly_name__'   => $kebab,
+        '__snake_name__'    => $snake,
+        '__kebab_name__'    => $kebab,
+        'NewPackage'        => $studly,
+        'newpackage'        => $flat,
+    ];
 }
 
+
 /**
+ * Zamienia placeholdery w zawartości plików.
  * @throws FileNotFoundException
  */
-function replacePlaceholders(string $targetFolder, string $moduleName): void
+function replaceInFileContents(string $targetFolder, string $moduleName): void
 {
-    $filesystem = new Illuminate\Filesystem\Filesystem();
+    $fs = new Filesystem();
+    $replacements = getReplacements($moduleName);
 
-    $studly = ucfirst($moduleName);
-    $replacements = [
-        '{{ StudlyName }}'            => $studly,
-        '{{ snake_name }}'            => strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $moduleName)),
-        '{{ kebab_name }}'            => strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $moduleName)),
-
-        'NewPackage'                  => $studly,
-        'newpackage'                  => strtolower($moduleName),
-
-        // Zmiana namespace'u na nazwę pakietu
-//        'Webemo\\Servicemanager\\'    => "Webemo\\{$studly}\\",
-//        'webemo/servicemanager'       => "webemo/" . strtolower($moduleName),
-//        'ServicemanagerProvider'      => "{$studly}Provider",
-//        'Servicemanager'              => $studly,
-//        'servicemanager'              => strtolower($moduleName)
-    ];
-
-    $files = $filesystem->allFiles($targetFolder);
+    $files = $fs->allFiles($targetFolder);
 
     foreach ($files as $file) {
-        $content = $filesystem->get($file->getPathname());
+        $path = $file->getPathname();
+        $content = $fs->get($path);
 
-        foreach ($replacements as $search => $replace) {
-            $content = str_replace($search, $replace, $content);
+        $newContent = str_replace(array_keys($replacements), array_values($replacements), $content);
+
+        if ($newContent !== $content) {
+            $fs->put($path, $newContent);
         }
-
-        $filesystem->put($file->getPathname(), $content);
     }
 
-    echo "✏️ Placeholders replaced in $targetFolder.\n";
+    echo "✏️ Placeholders replaced in file contents in $targetFolder.\n";
+}
+
+function renameFilesAndDirs(string $targetFolder, string $moduleName): void
+{
+    $fs = new Filesystem();
+    $replacements = getReplacements($moduleName);
+
+    /* 1️⃣  Katalogi (leaf‑first) */
+    $dirs = collect($fs->allFiles($targetFolder))
+        ->map(fn ($file) => dirname($file->getPathname()))
+        ->push($targetFolder)
+        ->unique()
+        ->sortByDesc(fn (string $dir) => strlen($dir));
+
+    foreach ($dirs as $dir) {
+        $newDir = str_replace(array_keys($replacements), array_values($replacements), $dir);
+
+        if ($newDir !== $dir && ! $fs->exists($newDir)) {
+            $fs->move($dir, $newDir);
+            echo "📂 Renamed directory: $dir → $newDir\n";
+        }
+    }
+
+    /* 2️⃣  Pliki */
+    foreach ($fs->allFiles($targetFolder) as $file) {
+        $oldPath = $file->getPathname();
+        $newPath = str_replace(array_keys($replacements), array_values($replacements), $oldPath);
+
+        /* ✂️  usuń sufiks .stub / .stub.php */
+        if (str_ends_with($newPath, '.stub.php')) {
+            $newPath = substr($newPath, 0, -9).'.php';      // ‑9 bo ".stub.php" ma 9 znaków
+        } elseif (str_ends_with($newPath, '.stub')) {
+            $newPath = substr($newPath, 0, -5);              // ‑5 bo ".stub" ma 5 znaków
+        }
+
+        if ($newPath !== $oldPath) {
+            // zabezpieczenie przed nadpisaniem
+            if ($fs->exists($newPath)) {
+                $dir  = dirname($newPath);
+                $base = pathinfo($newPath, PATHINFO_FILENAME);
+                $ext  = $file->getExtension() ? '.'.$file->getExtension() : '';
+                $newPath = $dir.DIRECTORY_SEPARATOR.$base.'_COPY'.$ext;
+            }
+
+            // przenieś (rename)
+            $fs->move($oldPath, $newPath);
+            echo "📦 Renamed file: $oldPath → $newPath\n";
+        }
+    }
+
+    echo "✅ Renamed files, removed .stub* suffixes under $targetFolder\n";
 }
 
 
