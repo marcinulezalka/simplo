@@ -9,10 +9,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Simplysmart\\Simplo\\": "src/",
-            "Simplysmart\\Simplo\\simplysmart\\": "src/simplysmart/",
-            "Simplysmart\\Simplo\\WebemoDbm\\": "src/webemo_dbm/",
-            "Simplysmart\\Simplo\\WebemoWebeshop\\": "src/webemo_webeshop/"
+            "Simplysmart\\Simplo\\": "src/"
         },
         "files": [
 
