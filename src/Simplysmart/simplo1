@@ -143,9 +143,10 @@ function clearEnvAll(): void
  * @param string $dst Destination directory
  * @param Filesystem $fs Filesystem instance
  * @param string $pkg Package name (for display in progress bar)
+ * @param array $excludeDirs List of directory names to exclude (e.g. ['node_modules', 'cache'])
  * @return int Number of copied files
  */
-function copyDirWithProgress(string $src, string $dst, Filesystem $fs, string $pkg): int
+function copyDirWithProgress(string $src, string $dst, Filesystem $fs, string $pkg, array $excludeDirs = []): int
 {
     $src = rtrim($src, DIRECTORY_SEPARATOR);
 
@@ -153,14 +154,24 @@ function copyDirWithProgress(string $src, string $dst, Filesystem $fs, string $p
         new RecursiveDirectoryIterator($src, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::SELF_FIRST
     );
+
     $files = [];
     foreach ($rii as $item) {
+        // Pomijanie plików znajdujących się w katalogach z listy
+        foreach ($excludeDirs as $exclude) {
+            if (str_contains($item->getPathname(), DIRECTORY_SEPARATOR . $exclude . DIRECTORY_SEPARATOR)) {
+                continue 2; // pomiń ten plik i przejdź do następnego
+            }
+        }
+
         if ($item->isFile()) {
             $files[] = $item;
         }
     }
+
     $total = count($files);
     $done = 0;
+
     foreach ($files as $item) {
         $targetPath = $dst . DIRECTORY_SEPARATOR . ltrim(substr($item->getPathname(), strlen($src)), DIRECTORY_SEPARATOR);
         $fs->ensureDirectoryExists(dirname($targetPath));
@@ -168,9 +179,11 @@ function copyDirWithProgress(string $src, string $dst, Filesystem $fs, string $p
         $done++;
         progressBar($done, $total, $pkg);
     }
+
     echo "\n";
     return $total;
 }
+
 
 /**
  * Copies all dependencies and manual libraries from node_modules to resources/vendor.
@@ -687,7 +700,7 @@ function publishSingleTheme(string $theme = null, string $system = null, bool $l
     $fs->ensureDirectoryExists($public);
 
     // Copy all contents from source_path to public_path
-    $fileCount = copyDirWithProgress($source, $public, $fs, "$system:$theme");
+    $fileCount = copyDirWithProgress($source, $public, $fs, "$system:$theme", ['views_temp']);
     if ($logHeader)
         echo "Theme '$theme' for system '$system' has been published ($fileCount files)\n";
 }
