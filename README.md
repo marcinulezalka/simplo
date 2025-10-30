@@ -1,4 +1,4 @@
-# SIMPLO CLI
+# SIMPLO
 
 **SIMPLO** to narzędzie CLI stworzone przez **simplySMART**, ułatwiające pracę z projektami opartymi na Laravelu oraz strukturze z modułami developerskimi i szablonami.  
 **Autor:** Marcin Ulezalka
