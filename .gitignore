@@ -15,6 +15,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/seeders/vendor
 .editorconfig
 .env
 .env.backup
