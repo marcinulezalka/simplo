@@ -2,14 +2,16 @@
     "name": "simplysmart/simplo",
     "type": "project",
     "description": "The cli application for the simplySMART framework",
-    "keywords": ["simplySMART", "framework", "simplo", "cli"],
-    "license": "proprietary",
+    "keywords": ["simplySMART", "simplo", "cli"],
+    "license": "mit",
     "require": {
-        "php": "^8.3"
+        "php": "^8.3",
+        "doctrine/dbal": "^3.10"
     },
     "autoload": {
         "psr-4": {
-            "Simplysmart\\Simplo\\": "src/"
+            "Simplysmart\\Simplo\\": "src/",
+            "Simplysmart\\Simplo\\App\\": "src/app/"
         },
         "files": [
 
@@ -23,7 +25,10 @@
             "providers": [
                 "Simplysmart\\Simplo\\App\\Providers\\SimploProvider"
             ],
-            "aliases": []
+            "aliases":
+                {
+                    "Simplo": "Simplysmart\\Simplo\\Simplo"
+                }
         }
     },
     "config": {
