@@ -14,9 +14,26 @@ composer require simplysmart/simplo --dev
 
 Po instalacji:
 - plik `simplo` pojawi się w katalogu głównym projektu
+- otrzyma uprawnienia do uruchamiania (`chmod 755`)
 - będzie gotowy do uruchamiania jako CLI
 
-Nie musisz wykonywać żadnych dodatkowych kroków — wszystko dzieje się automatycznie dzięki wpisowi w `composer.json`:
+# 📁 Struktura
+
+```
+project-root/
+├── simplo                  ← launcher CLI
+├── artisan
+├── composer.json
+├── vendor/
+│   └── simplysmart/simplo/
+│       ├── simplo          ← źródłowy launcher
+│       └── src/
+│           └── Simplo.php  ← dispatcher CLI
+
+```
+
+# ⚙️ Automatyczna publikacja launchera
+W projekcie Laravel (np. skeletonie) dodaj do composer.json:
 
 ```json
 {
@@ -32,6 +49,9 @@ Nie musisz wykonywać żadnych dodatkowych kroków — wszystko dzieje się auto
     }
 }
 ```
+
+Dzięki temu plik simplo będzie publikowany automatycznie po każdej instalacji lub aktualizacji.
+
 
 ## ▶️ Pierwsze uruchomienie
 ```bash

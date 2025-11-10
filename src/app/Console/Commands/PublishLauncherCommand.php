@@ -1,4 +1,7 @@
 <?php
+/*
+ * Copyright (c) 2014-2025. simplySMART
+ */
 
 namespace Simplysmart\Simplo\App\Console\Commands;
 
@@ -20,11 +23,12 @@ class PublishLauncherCommand implements CommandInterface
     /**
      * Wykonuje publikację pliku `simplo` do katalogu głównego aplikacji.
      *
-     * @param array $args Argumenty z CLI (nie są wymagane dla tej komendy).
+     * @param array $args Argumenty z CLI (np. ['--force']).
      * @return void
      */
     public function handle(array $args = []): void
     {
-        SimploService::publishLauncher();
+        $force = in_array('--force', $args);
+        SimploService::publishLauncher($force);
     }
 }
