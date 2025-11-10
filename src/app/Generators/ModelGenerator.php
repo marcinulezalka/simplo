@@ -6,7 +6,7 @@
 namespace Simplysmart\Simplo\App\Generators;
 
 use Doctrine\DBAL\Exception;
-use Doctrine\DBAL\Schema\SchemaManager;
+use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -22,13 +22,16 @@ class ModelGenerator
 {
     protected string $connection;
     protected string $outputPath;
-    protected SchemaManager $schema;
+    protected AbstractSchemaManager $schema;
 
     public function __construct(string $connection = 'mysql', string $outputPath = '')
     {
         $this->connection = $connection;
         $this->outputPath = $outputPath;
-        $this->schema = DB::connection($this->connection)->getDoctrineSchemaManager();
+
+        /** @var AbstractSchemaManager $schema */
+        $schema = DB::connection($this->connection)->getDoctrineSchemaManager();
+        $this->schema = $schema;
     }
 
     /**

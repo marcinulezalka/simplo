@@ -31,25 +31,71 @@ class Kernel
         'publish:launcher' => \Simplysmart\Simplo\App\Console\Commands\PublishLauncherCommand::class,
     ];
 
+
+    /**
+     * Rejestruje nową komendę w dispatcherze.
+     *
+     * @param string $name
+     * @param class-string<CommandInterface> $handler
+     * @return void
+     */
+    public function register(string $name, string $handler): void
+    {
+        $this->commands[$name] = $handler;
+    }
+
+    /**
+     * Sprawdza, czy dana komenda jest zarejestrowana.
+     *
+     * @param string $name
+     * @return bool
+     */
+    public function has(string $name): bool
+    {
+        return isset($this->commands[$name]);
+    }
+
+    /**
+     * Zwraca listę dostępnych komend.
+     *
+     * @return array<string>
+     */
+    public function list(): array
+    {
+        return array_keys($this->commands);
+    }
+
+    /**
+     * Zwraca instancję klasy obsługującej daną komendę.
+     *
+     * @param string $name
+     * @return CommandInterface|null
+     */
+    public function resolve(string $name): ?CommandInterface
+    {
+        if (!$this->has($name)) {
+            return null;
+        }
+
+        $handler = app($this->commands[$name]);
+
+        return $handler instanceof CommandInterface ? $handler : null;
+    }
+
     /**
      * Uruchamia odpowiednią komendę na podstawie wejścia CLI.
      *
-     * @param string $command Nazwa komendy (np. 'make:models').
-     * @param array $args Argumenty przekazane z CLI (np. ['--all', '--module=module1']).
+     * @param string $command
+     * @param array $args
      * @return void
      */
     public function dispatch(string $command, array $args = []): void
     {
-        if (!isset($this->commands[$command])) {
+        $handler = $this->resolve($command);
+
+        if (!$handler) {
             echo "❌ Nieznana komenda: $command\n";
             echo "ℹ️ Użyj 'php simplo help' aby zobaczyć dostępne komendy.\n";
-            return;
-        }
-
-        $handler = app($this->commands[$command]);
-
-        if (!$handler instanceof CommandInterface) {
-            echo "❌ Komenda '$command' nie implementuje CommandInterface.\n";
             return;
         }
 
