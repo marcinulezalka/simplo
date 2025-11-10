@@ -3,7 +3,13 @@
     "type": "project",
     "description": "The cli application for the simplySMART framework",
     "keywords": ["simplySMART", "simplo", "cli"],
-    "license": "mit",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Marcin Ulezalka",
+            "email": "simplo@simplysmart.pl"
+        }
+    ],
     "require": {
         "php": "^8.3",
         "doctrine/dbal": "^3.10"
@@ -18,7 +24,15 @@
         ]
     },
     "scripts": {
-        "test": "pest"
+        "test": "pest",
+        "post-install-cmd": [
+            "@php vendor/simplysmart/simplo/simplo publish:launcher",
+            "@chmod +755 simplo"
+        ],
+        "post-update-cmd": [
+            "@php vendor/simplysmart/simplo/simplo publish:launcher",
+            "@chmod +755 simplo"
+        ]
     },
     "extra": {
         "laravel": {
@@ -27,7 +41,7 @@
             ],
             "aliases":
                 {
-                    "Simplo": "Simplysmart\\Simplo\\Simplo"
+                    "Simplo": "simplo"
                 }
         }
     },
