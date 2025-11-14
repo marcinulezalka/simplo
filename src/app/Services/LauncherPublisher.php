@@ -25,8 +25,8 @@ class LauncherPublisher
      */
     public static function publishLauncher(bool $force = false): void
     {
-        $source = base_path('vendor/simplysmart/simplo/simplo');
-        $target = base_path('simplo');
+        $source = getcwd() . '/vendor/simplysmart/simplo/simplo';
+        $target = getcwd() . '/simplo';
 
         if (!file_exists($source)) {
             echo "❌ Nie znaleziono pliku źródłowego: $source\n";

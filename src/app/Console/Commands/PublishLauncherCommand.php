@@ -6,7 +6,7 @@
 namespace Simplysmart\Simplo\App\Console\Commands;
 
 use Simplysmart\Simplo\App\Contracts\CommandInterface;
-use Simplysmart\Simplo\App\Services\SimploService;
+use Simplysmart\Simplo\App\Services\LauncherPublisher;
 
 /**
  * Class PublishLauncherCommand
@@ -29,6 +29,6 @@ class PublishLauncherCommand implements CommandInterface
     public function handle(array $args = []): void
     {
         $force = in_array('--force', $args);
-        SimploService::publishLauncher($force);
+        LauncherPublisher::publishLauncher($force);
     }
 }
