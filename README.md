@@ -17,6 +17,14 @@ Po instalacji:
 - otrzyma uprawnienia do uruchamiania (`chmod 755`)
 - będzie gotowy do uruchamiania jako CLI
 
+Upewnij się, że provider `SimploProvider` jest zarejestrowany w `config/app.php` lub automatycznie ładowany przez Composer.
+
+Opublikuj konfigurację
+
+```bash
+php artisan vendor:publish --tag=simplo-config
+```
+
 # 📁 Struktura
 
 ```
@@ -61,20 +69,34 @@ php simplo help
 Zobaczysz listę dostępnych komend.
 
 
-📦 Dostępne komendy
-make:models
-Generuje modele Eloquent na podstawie schematu bazy danych.
-Składnia:
-php simplo make:models [table] [--module=Blog] [--connection=mysql]
-php simplo make:models --all [--module=Blog]
+## 📦 Dostępne komendy
 
+---
+
+## make:models
+Generator modeli Eloquent na podstawie schematu bazy danych. Tworzy kompletne klasy PHP z uwzględnieniem pól `fillable`, `casts`, `attributes`, `hidden`, `primaryKey`, `connection`, a także komentarzy ze schematu jako adnotacji `PHPDoc`.
 
 Przykłady:
-- php simplo make:models users
-- php simplo make:models posts --module=Blog
-- php simplo make:models --all
 
-update
+```bash
+php simplo make:models --all
+
+php simplo make:models --table=users
+```
+
+### ⚙️ Opcje
+| Opcja                | Opis                                                           |
+|----------------------|----------------------------------------------------------------|
+| `--table=users`      | Generuje model tylko dla wskazanej tabeli.                     |
+| `--path=app/Domain`  | Nadpisuje domyślną ścieżkę zapisu modeli.                      |
+| `--stub=custom.stub` | Używa alternatywnego szablonu modelu.                          |
+| `--no-casts`         | Pomija generowanie tablicy `$casts`                            |
+| `--no-attributes`    | Pomija generowanie tablicy `$attributes`                       |
+| `--no-docblock`      | Pomija generowanie komentarza PHPDoc z adnotacjami `@property` |
+| `--force`            | Nadpisuje istniejące pliki modeli.                             |
+
+
+## update
 Uruchamia composer update i podbija wersję pakietu zgodnie z typem aktualizacji.
 Składnia:
 php simplo update [type] [package]
@@ -89,18 +111,16 @@ Typy:
 - php simplo update build simplo
 - php simplo update release simplo
 
-clear:env
+## clear:env
 Czyści środowisko Laravel (cache, config, route, view) i wykonuje composer dump-autoload.
 Składnia:
 php simplo clear:env
 
 
-
-publish:launcher
+## publish:launcher
 Publikuje plik simplo do katalogu głównego aplikacji Laravel.
 Składnia:
 php simplo publish:launcher
-
 
 
 🧪 Testowanie komend
@@ -111,23 +131,9 @@ php simplo clear:env
 php simplo publish:launcher
 
 
+---
 
-📁 Struktura projektu
-src/
-├── App/
-│   ├── Console/
-│   │   └── Commands/
-│   ├── Services/
-│   └── Utils/
-├── resources/
-│   └── templates/
-│       └── model.php.stub
-├── simplo
-├── Simplo.php
-
-
-
-## 📜 Licencja
+# 📜 Licencja
 
 Simplo jest udostępniany na licencji MIT.
 
@@ -141,4 +147,3 @@ Pełna treść licencji znajduje się w pliku `LICENSE`.
 🧑‍💻 Autor
 Marcin Ulezalka
 SimplySMART, 2025
-
