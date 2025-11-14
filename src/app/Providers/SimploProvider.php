@@ -39,6 +39,12 @@ class SimploProvider extends ServiceProvider
      */
     public function boot(Router $router): void
     {
+        $this->publishes([
+            __DIR__ . '/../../config/simplo.php' => config_path('simplo.php'),
+        ], 'simplo-config');
+
+
+
         // Możesz tutaj rejestrować trasy, eventy, publikacje plików, itp.com
         // Przykład:
         // $this->loadRoutesFrom(__DIR__ . '/../Routes/web.php');
