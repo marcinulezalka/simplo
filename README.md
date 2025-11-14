@@ -19,10 +19,29 @@ Po instalacji:
 
 Upewnij się, że provider `SimploProvider` jest zarejestrowany w `config/app.php` lub automatycznie ładowany przez Composer.
 
+🔧 Konfiguracja (config/simplo.php)
+
 Opublikuj konfigurację
 
 ```bash
 php artisan vendor:publish --tag=simplo-config
+```
+
+Plik konfiguracyjny:
+
+```php
+return [
+'model_template_path' => base_path('vendor/simplysmart/simplo/src/resources/templates/model.php.stub'),
+
+    'exclude' => [
+        'fillable'   => ['created_at', 'updated_at', 'deleted_at'],
+        'casts'      => ['created_at', 'updated_at', 'deleted_at'],
+        'attributes' => ['created_at', 'updated_at', 'deleted_at'],
+        'hidden'     => ['remember_token'],
+    ],
+
+    'model_path' => app_path('Models'),
+];
 ```
 
 # 📁 Struktura
