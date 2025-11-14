@@ -24,11 +24,11 @@ class SimploProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Możesz tutaj rejestrować singletony, helpery, aliasy, itp.
-        // Przykład:
-        // $this->app->singleton(SimploService::class, function () {
-        //     return new SimploService();
-        // });
+        $this->mergeConfigFrom(
+            __DIR__ . '/../../config/simplo.php',
+            'simplo'
+        );
+
     }
 
     /**
@@ -39,7 +39,7 @@ class SimploProvider extends ServiceProvider
      */
     public function boot(Router $router): void
     {
-        // Możesz tutaj rejestrować trasy, eventy, publikacje plików, itp.
+        // Możesz tutaj rejestrować trasy, eventy, publikacje plików, itp.com
         // Przykład:
         // $this->loadRoutesFrom(__DIR__ . '/../Routes/web.php');
     }

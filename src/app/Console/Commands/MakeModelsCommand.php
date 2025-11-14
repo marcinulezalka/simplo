@@ -3,10 +3,8 @@
  * Copyright (c) 2014-2025. simplySMART
  */
 
-
 namespace Simplysmart\Simplo\App\Console\Commands;
 
-use Doctrine\DBAL\Exception;
 use Simplysmart\Simplo\App\Contracts\CommandInterface;
 use Simplysmart\Simplo\App\Generators\ModelGenerator;
 use Illuminate\Support\Facades\DB;
@@ -16,15 +14,17 @@ use Illuminate\Support\Facades\DB;
  *
  * Generuje modele Eloquent na podstawie schematu bazy danych.
  *
+ * Obsługuje:
+ * - generowanie pojedynczego modelu: php simplo make:models users
+ * - generowanie wszystkich modeli: php simplo make:models --all
+ * - opcjonalnie: --module=Blog, --connection=mysql
+ *
  * @package Simplysmart\Simplo\App\Console\Commands
  * @author Marcin Ulezalka
  * @version 1.0.0
  */
 class MakeModelsCommand implements CommandInterface
 {
-    /**
-     * @throws Exception
-     */
     public function handle(array $args = []): void
     {
         $options = $this->parseArgs($args);
@@ -52,10 +52,18 @@ class MakeModelsCommand implements CommandInterface
 
         if ($all) {
             echo "🔄 Generuję modele dla wszystkich tabel w połączeniu: $connection\n";
-            $schema = DB::connection($connection)->getDoctrineSchemaManager();
-            $tables = $schema->listTableNames();
 
-            foreach ($tables as $tableName) {
+            $tables = DB::connection($connection)->select("SHOW TABLES");
+
+            if (empty($tables)) {
+                echo "⚠️ Brak tabel w połączeniu: $connection\n";
+                return;
+            }
+
+            $tableKey = array_key_first((array) $tables[0]);
+            $tableNames = array_map(fn($row) => $row->$tableKey, $tables);
+
+            foreach ($tableNames as $tableName) {
                 $generator->saveModel($tableName);
             }
 

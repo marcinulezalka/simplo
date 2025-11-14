@@ -2,19 +2,24 @@
 
 namespace {{ namespace }};
 
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Class {{ class }}
  *
  * Model dla tabeli `{{ table }}`.
- *
+ {{ phpdoc }}
  * @package {{ namespace }}
  */
+
+
+
 class {{ class }} extends Model
 {
-    use SoftDeletes;
+    use Notifiable, HasRoles, SoftDeletes;
 
     /**
      * Połączenie bazodanowe.
