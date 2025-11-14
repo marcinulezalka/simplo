@@ -5,8 +5,6 @@
 
 namespace Simplysmart\Simplo\App\Generators;
 
-use Doctrine\DBAL\Exception;
-use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -22,16 +20,11 @@ class ModelGenerator
 {
     protected string $connection;
     protected string $outputPath;
-    protected AbstractSchemaManager $schema;
 
     public function __construct(string $connection = 'mysql', string $outputPath = '')
     {
         $this->connection = $connection;
         $this->outputPath = $outputPath;
-
-        /** @var AbstractSchemaManager $schema */
-        $schema = DB::connection($this->connection)->getDoctrineSchemaManager();
-        $this->schema = $schema;
     }
 
     /**
@@ -39,20 +32,20 @@ class ModelGenerator
      *
      * @param string $table
      * @return string
-     * @throws Exception
      */
     public function generateModel(string $table): string
     {
-        $tableDetails = $this->schema->introspectTable($table);
-        $columns = $tableDetails->getColumns();
-        $primaryKey = $tableDetails->getPrimaryKey()?->getColumns()[0] ?? 'id';
+        $columns = DB::connection($this->connection)->select("SHOW COLUMNS FROM `$table`");
+        $primaryKey = $this->getPrimaryKey($table);
 
         $fillable = [];
         $casts = [];
         $attributes = [];
 
         foreach ($columns as $column) {
-            $name = $column->getName();
+            $name = $column->Field;
+            $type = $column->Type;
+            $default = $column->Default;
 
             if ($name === $primaryKey) {
                 continue;
@@ -60,15 +53,12 @@ class ModelGenerator
 
             $fillable[] = $name;
 
-            $type = $column->getType()->getName();
-            $default = $column->getDefault();
-
             $casts[$name] = match (true) {
-                in_array($type, ['boolean', 'tinyint']), Str::startsWith($name, 'is_') => 'boolean',
-                in_array($type, ['json', 'text']) && Str::contains($name, 'json') => 'array',
-                in_array($type, ['integer', 'bigint', 'smallint']) => 'int',
-                in_array($type, ['decimal', 'float', 'double']) => 'float',
-                in_array($type, ['datetime', 'timestamp']) => 'datetime',
+                str_contains($type, 'int') => 'int',
+                str_contains($type, 'bool') || Str::startsWith($name, 'is_') => 'boolean',
+                str_contains($type, 'float') || str_contains($type, 'double') || str_contains($type, 'decimal') => 'float',
+                str_contains($type, 'json') || (str_contains($type, 'text') && Str::contains($name, 'json')) => 'array',
+                str_contains($type, 'datetime') || str_contains($type, 'timestamp') => 'datetime',
                 default => 'string',
             };
 
@@ -90,6 +80,18 @@ class ModelGenerator
             'attributes'  => var_export($attributes, true),
             'casts'       => var_export($casts, true),
         ]);
+    }
+
+    /**
+     * Pobiera nazwę klucza głównego z tabeli.
+     *
+     * @param string $table
+     * @return string
+     */
+    protected function getPrimaryKey(string $table): string
+    {
+        $keys = DB::connection($this->connection)->select("SHOW KEYS FROM `$table` WHERE Key_name = 'PRIMARY'");
+        return $keys[0]->Column_name ?? 'id';
     }
 
     /**
@@ -120,7 +122,6 @@ class ModelGenerator
      *
      * @param string $table
      * @return void
-     * @throws Exception
      */
     public function saveModel(string $table): void
     {
