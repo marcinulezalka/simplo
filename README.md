@@ -50,9 +50,17 @@ return [
 project-root/
 ├── src
 │   ├── app
+│   │   ├── Console
+│   │   │   ├──Commands
+│   │   │   │   ├── ClearEnvCommand.php
+│   │   │   │   ├── MakeModelsCommand.php
+│   │   │   │   ├── PublishLauncherCommand.php
+│   │   │   │   ├── ThemePublishCommand.php
+│   │   │   │   └── UpdateCommand.php
+│   │   │   └── Kernel.php
 │   │   ├── Services
-│   │   │   ├──Theme/
-│   │   │   │   ├── ThemePublishAssetsCommand.php
+│   │   │   ├──Theme
+│   │   │   │   ├── ThemePublisherService.php
 │   │   │   │   └── ThemeService.php
 │   │   │   ├── ComposerUpdateService.php
 │   │   │   ├── EnvCleanerService.php 
@@ -129,7 +137,7 @@ php simplo make:models --table=users
 ## update
 Uruchamia composer update i podbija wersję pakietu zgodnie z typem aktualizacji.
 Składnia:
-php simplo update [type] [package]
+php simplo update type package
 
 
 Typy:
