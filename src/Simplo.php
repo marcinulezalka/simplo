@@ -51,6 +51,10 @@ class Simplo
         echo "  php simplo update [package] [type]                  - aktualizuje wersję i publikuje zasoby\n";
         echo "  php simplo clear:env                                - czyści cache/config/route/view\n";
         echo "  php simplo publish:launcher [--force]               - publikuje plik uruchamiający do skeletona\n";
+        echo "  php simplo theme:publish-assets                     - publikuje zasoby motywów do katalogu public\n";
+        echo "      --system=web                                    - (opcjonalnie) system, np. web, smartpanel\n";
+        echo "      --theme=tabler                                  - (opcjonalnie) motyw do publikacji\n";
+        echo "      --no-header                                     - (opcjonalnie) pomija nagłówki logów\n";
         echo "  php simplo help                                     - pokazuje tę pomoc\n\n";
     }
 }

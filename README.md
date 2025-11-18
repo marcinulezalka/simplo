@@ -46,21 +46,32 @@ return [
 
 # 📁 Struktura
 
-```
+```bash
 project-root/
-├── simplo                  ← launcher CLI
+├── src
+│   ├── app
+│   │   ├── Services
+│   │   │   ├──Theme/
+│   │   │   │   ├── ThemePublishAssetsCommand.php
+│   │   │   │   └── ThemeService.php
+│   │   │   ├── ComposerUpdateService.php
+│   │   │   ├── EnvCleanerService.php 
+│   │   │   ├── LauncherPublisher.php
+│   │   │   ├── ProgressService.php
+│   │   │   └── SimploService.php
+│   └── Simplo.php                          ← dispatcher CLI
+├── simplo                                  ← launcher CLI
 ├── artisan
 ├── composer.json
 ├── vendor/
 │   └── simplysmart/simplo/
-│       ├── simplo          ← źródłowy launcher
+│       ├── simplo                          ← źródłowy launcher
 │       └── src/
-│           └── Simplo.php  ← dispatcher CLI
-
+│           └── Simplo.php                  ← dispatcher CLI
 ```
 
 # ⚙️ Automatyczna publikacja launchera
-W projekcie Laravel (np. skeletonie) dodaj do composer.json:
+W projekcie Laravel (np. skeletonie) dodaj do `composer.json`:
 
 ```json
 {
@@ -149,6 +160,57 @@ php simplo update release simplo
 php simplo clear:env
 php simplo publish:launcher
 
+
+---
+
+# 🎨 Publikacja motywów do katalogu
+
+Simplo umożliwia automatyczną publikację zasobów motywów zdefiniowanych w `config/themes.php` do katalogu `public/`. Operacja ta kopiuje pliki z `source_path` do `public_path` dla każdego motywu w systemie.
+
+#### 🔧 Konfiguracja
+
+Plik `config/themes.php` powinien zawierać strukturę:
+
+```php
+return [
+'web' => [
+    'default' => 'tabler',
+    'themes' => [
+        'tabler' => [
+            'source_path' => 'vendor/simplysmart/smartpanel/src/resources/themes/web/tabler',
+            'public_path' => 'simplysmart/web/themes/tabler/',
+            'assets_file' => 'theme_assets.json',
+            'default_mode' => 'light',
+        ],
+    ],
+],
+// kolejne systemy...
+];
+```
+### 🚀 Uruchomienie publikacji
+
+Publikacja wszystkich motywów
+
+```bash
+php simplo theme:publish-assets
+```
+Publikuje wszystkie motywy dla wszystkich systemów. Po zakończeniu następuje automatyczne czyszczenie cache Laravel (cache, config, route, view) oraz composer dump-autoload.
+
+Publikacja konkretnego motywu
+
+```bash
+php simplo theme:publish-assets --system=web --theme=tabler
+```
+
+Publikuje tylko wskazany motyw dla danego systemu.
+
+### ⚙️ Opcje dodatkowe
+- --no-header – pomija nagłówki logów w konsoli
+
+
+### 📦 Efekt działania
+
+Zasoby motywu zostają skopiowane do public/{public_path}. Istniejące katalogi są nadpisywane. Operacja ignoruje katalogi tymczasowe (views_temp) i wyświetla postęp kopiowania.
 
 ---
 

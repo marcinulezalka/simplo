@@ -29,8 +29,8 @@ class Kernel
         'update' => \Simplysmart\Simplo\App\Console\Commands\UpdateCommand::class,
         'clear:env' => \Simplysmart\Simplo\App\Console\Commands\ClearEnvCommand::class,
         'publish:launcher' => \Simplysmart\Simplo\App\Console\Commands\PublishLauncherCommand::class,
+        'theme:publish' => \Simplysmart\Simplo\App\Console\Commands\ThemePublishCommand::class,
     ];
-
 
     /**
      * Rejestruje nową komendę w dispatcherze.

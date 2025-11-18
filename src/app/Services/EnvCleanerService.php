@@ -36,13 +36,15 @@ class EnvCleanerService
             passthru($step['cmd']);
         }
 
-        echo "📦 Regenerating Composer autoload files...\n";
-        for ($i = 0; $i <= 100; $i += 10) {
-            usleep(15000);
-            ProgressService::show($i, 100, "composer dump-autoload");
-        }
-        passthru('composer dump-autoload');
+        echo "✅ All Laravel caches have been cleared!\n\n";
 
-        echo "✅ All Laravel caches have been cleared and autoload regenerated!\n\n";
+//        echo "📦 Regenerating Composer autoload files...\n";
+//        for ($i = 0; $i <= 100; $i += 10) {
+//            usleep(15000);
+//            ProgressService::show($i, 100, "composer dump-autoload");
+//        }
+//        passthru('composer dump-autoload');
+
+//        echo "✅ All Laravel caches have been cleared and autoload regenerated!\n\n";
     }
 }
