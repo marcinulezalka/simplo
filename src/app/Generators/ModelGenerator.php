@@ -55,6 +55,8 @@ class ModelGenerator
      *
      * @param string $table Nazwa tabeli
      * @return string Kod źródłowy modelu
+     * @noinspection PhpExpressionWithSameOperandsInspection
+     * @noinspection PhpRedundantOptionalArgumentInspection
      */
     public function generateModel(string $table): string
     {
@@ -247,7 +249,7 @@ class ModelGenerator
     }
 
     /**
-     * Generuje PHPDoc z adnotacjami @property na podstawie kolumn tabeli.
+     * Generuje PHPDoc z adnotacjami property na podstawie kolumn tabeli.
      *
      * @param array $columns
      * @return string
@@ -282,8 +284,8 @@ class ModelGenerator
     protected function mapToPhpType(string $sqlType, string $name): string
     {
         return match (true) {
-            str_contains($sqlType, 'int') => Str::startsWith($name, 'is_') ? 'bool' : 'int',
-            str_contains($sqlType, 'bool') => 'bool',
+            str_contains($sqlType, 'int') => Str::startsWith($name, 'is_') ? 'boolean' : 'integer',
+            str_contains($sqlType, 'bool') => 'boolean',
             str_contains($sqlType, 'float'), str_contains($sqlType, 'double'), str_contains($sqlType, 'decimal') => 'float',
             str_contains($sqlType, 'datetime'), str_contains($sqlType, 'timestamp') => '\Carbon\Carbon|null',
             str_contains($sqlType, 'date') => '\Carbon\Carbon|null',
