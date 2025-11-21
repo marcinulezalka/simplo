@@ -11,9 +11,10 @@
 
 return [
     /**
-     * Ścieżka do szablonu modelu Eloquent.
+     * Ścieżki szablonów dla generatorów kodu Simplo.
      */
     'model_template_path' => base_path('vendor/simplysmart/simplo/src/resources/templates/model.php.stub'),
+    'request_template_path'=> base_path('vendor/simplysmart/simplo/src/resources/templates/request.php.stub'),
 
     /**
      * Pełna nazwa pakietu (np. vendor/nazwa).
@@ -22,6 +23,15 @@ return [
      * - Ścieżek do storage i publikowanych zasobów
      */
     'package_name' => 'marcinulezalka/simplo',
+
+    /**
+     * Pełna nazwa aliasu do katalogu lang wykorzystywana podczas tłumaczenia (np. elmts-lang::).
+     * Używana do:
+     * - Identyfikacji zasobów (lang)
+     * - Ścieżek do lang
+     */
+    'lang_namespace' => 'simplo-lang',
+
 
     /**
      * Nazwa modułu (biznesowa).

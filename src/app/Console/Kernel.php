@@ -26,6 +26,7 @@ class Kernel
      */
     protected array $commands = [
         'make:models' => \Simplysmart\Simplo\App\Console\Commands\MakeModelsCommand::class,
+        'make:request' => \Simplysmart\Simplo\App\Console\Commands\MakeRequestCommand::class,
         'update' => \Simplysmart\Simplo\App\Console\Commands\UpdateCommand::class,
         'clear:env' => \Simplysmart\Simplo\App\Console\Commands\ClearEnvCommand::class,
         'publish:launcher' => \Simplysmart\Simplo\App\Console\Commands\PublishLauncherCommand::class,

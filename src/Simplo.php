@@ -48,10 +48,11 @@ class Simplo
     {
         echo "\n📘 SIMPLO - dostępne komendy:\n\n";
         echo "  php simplo make:models [table] [--module=module1]   - generuje modele na podstawie bazy danych\n";
+        echo "  php simplo make:request [table] [--module=module1]  - generuje FormRequesty na podstawie bazy danych\n";
         echo "  php simplo update [package] [type]                  - aktualizuje wersję i publikuje zasoby\n";
         echo "  php simplo clear:env                                - czyści cache/config/route/view\n";
         echo "  php simplo publish:launcher [--force]               - publikuje plik uruchamiający do skeletona\n";
-        echo "  php simplo theme:publish-assets                     - publikuje zasoby motywów do katalogu public\n";
+        echo "  php simplo theme:publish                            - publikuje zasoby motywów do katalogu public\n";
         echo "      --system=web                                    - (opcjonalnie) system, np. web, smartpanel\n";
         echo "      --theme=tabler                                  - (opcjonalnie) motyw do publikacji\n";
         echo "      --no-header                                     - (opcjonalnie) pomija nagłówki logów\n";

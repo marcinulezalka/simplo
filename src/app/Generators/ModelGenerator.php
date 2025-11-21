@@ -143,9 +143,10 @@ class ModelGenerator
             }
 
             $casts[$name] = match (true) {
+                str_starts_with($type, 'enum(') => 'string',
                 str_contains($type, 'tinyint') && Str::startsWith($name, 'is_') => 'boolean',
                 str_contains($type, 'bool') => 'boolean',
-                str_contains($type, 'int') => 'int',
+                str_contains($type, 'int') => 'integer',
                 str_contains($type, 'float') || str_contains($type, 'double') || str_contains($type, 'decimal') => 'float',
                 str_contains($type, 'json') || (str_contains($type, 'text') && Str::contains($name, 'json')) => 'array',
                 str_contains($type, 'datetime') || str_contains($type, 'timestamp') => 'datetime',

@@ -1,0 +1,55 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class {{ class }} extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+{{ rules }}
+        ];
+    }
+
+    public function prepareForValidation(): void
+    {
+        $merged = [];
+
+        // Konwersja pól boolean (checkboxy/switche)
+        foreach (array_keys($this->booleanFields()) as $field) {
+            $merged[$field] = $this->has($field);
+        }
+
+        $this->merge($merged);
+    }
+
+    /**
+     * Lista pól typu boolean (is_...)
+     * Generator uzupełnia tę metodę automatycznie.
+     */
+    protected function booleanFields(): array
+    {
+        return [
+    {{ booleanFields }}
+        ];
+    }
+
+
+    public function messages(): array
+    {
+        return [
+    {{ messages }}
+        ];
+    }
+
+
+    // {{ comments }}
+}
