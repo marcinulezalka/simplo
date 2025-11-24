@@ -31,7 +31,9 @@ Plik konfiguracyjny:
 
 ```php
 return [
-'model_template_path' => base_path('vendor/simplysmart/simplo/src/resources/templates/model.php.stub'),
+    'model_template_path' => base_path('vendor/simplysmart/simplo/src/resources/templates/model.php.stub'),
+    'request_template_path'=> base_path('vendor/simplysmart/simplo/src/resources/templates/request.php.stub'),
+    'lang_template_path'=> base_path('vendor/simplysmart/simplo/src/resources/templates/lang.php.stub'),
 
     'exclude' => [
         'fillable'   => ['created_at', 'updated_at', 'deleted_at'],
@@ -40,11 +42,7 @@ return [
         'hidden'     => ['remember_token'],
     ],
 
-    'model_path' => app_path('Models'),
-    'model_template_path'   => base_path('stubs/model.stub'),
-       'request_template_path' => base_path('stubs/request.stub'),
-       'lang_template_path'    => base_path('stubs/lang.stub'),
-       'lang_namespace'        => 'simplo',
+    'lang_namespace'        => 'simplo',
 
 ];
 ```
