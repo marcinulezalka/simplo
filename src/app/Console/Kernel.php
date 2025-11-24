@@ -25,6 +25,7 @@ class Kernel
      * @var array<string, class-string<CommandInterface>>
      */
     protected array $commands = [
+        'make:lang' => \Simplysmart\Simplo\App\Console\Commands\MakeLangCommand::class,
         'make:models' => \Simplysmart\Simplo\App\Console\Commands\MakeModelsCommand::class,
         'make:request' => \Simplysmart\Simplo\App\Console\Commands\MakeRequestCommand::class,
         'update' => \Simplysmart\Simplo\App\Console\Commands\UpdateCommand::class,

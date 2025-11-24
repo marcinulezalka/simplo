@@ -41,6 +41,11 @@ return [
     ],
 
     'model_path' => app_path('Models'),
+    'model_template_path'   => base_path('stubs/model.stub'),
+       'request_template_path' => base_path('stubs/request.stub'),
+       'lang_template_path'    => base_path('stubs/lang.stub'),
+       'lang_namespace'        => 'simplo',
+
 ];
 ```
 
@@ -53,6 +58,7 @@ project-root/
 │   │   ├── Console
 │   │   │   ├──Commands
 │   │   │   │   ├── ClearEnvCommand.php
+│   │   │   │   ├── MakeLangCommand.php
 │   │   │   │   ├── MakeModelsCommand.php
 │   │   │   │   ├── PublishLauncherCommand.php
 │   │   │   │   ├── ThemePublishCommand.php
@@ -66,6 +72,7 @@ project-root/
 │   │   │   ├── EnvCleanerService.php 
 │   │   │   ├── LauncherPublisher.php
 │   │   │   ├── ProgressService.php
+│   │   │   ├── SchemaInspector.php
 │   │   │   └── SimploService.php
 │   └── Simplo.php                          ← dispatcher CLI
 ├── simplo                                  ← launcher CLI
@@ -132,6 +139,55 @@ php simplo make:models --table=users
 | `--no-attributes`    | Pomija generowanie tablicy `$attributes`                       |
 | `--no-docblock`      | Pomija generowanie komentarza PHPDoc z adnotacjami `@property` |
 | `--force`            | Nadpisuje istniejące pliki modeli.                             |
+
+## make:request
+
+Generator klas FormRequest (StoreRequest i UpdateRequest) na podstawie schematu bazy danych.
+Tworzy reguły walidacji, komunikaty błędów i komentarze na podstawie typów SQL i komentarzy w schemacie.
+
+Przykłady:
+
+```bash
+php simplo make:request --table=orders
+
+php simplo make:request --all
+```
+
+### ⚙️ Opcje
+| Opcja                    | Opis                                               |
+|--------------------------|----------------------------------------------------|
+| --table=orders           | Generuje requesty tylko dla wskazanej tabeli.      |
+| --path=app/Http/Requests | Nadpisuje domyślną ścieżkę zapisu requestów.       |
+| --stub=custom.stub       | Używa alternatywnego szablonu requestu.            |
+| --no-messages            | Pomija generowanie komunikatów walidacyjnych.      |
+| --no-comments            | Pomija zakomentowaną listę pól z typami i opisami. |
+| --force                  | Nadpisuje istniejące pliki requestów.              |
+
+
+## make:langs - Generowanie plików lang
+
+Generator plików tłumaczeń lang na podstawie schematu bazy danych.
+Tworzy pliki w katalogu lang/pl lub w module, z sekcją text zawierającą wszystkie pola fillable.
+Dodaje komentarze PHPDoc z opisami kolumn.
+
+Przykłady:
+
+```bash
+php simplo make:lang --table=users
+
+php simplo make:lang --all --connection=mysql
+
+```
+
+### ⚙️ Opcje
+| Opcja                        | Opis                                                         |
+|------------------------------|--------------------------------------------------------------|
+| --table=users                | Generuje plik lang tylko dla wskazanej tabeli.               |
+| --path=Modules/Elmts/lang/pl | Nadpisuje domyślną ścieżkę zapisu plików lang.               |
+| --stub=custom.stub           | Używa alternatywnego szablonu pliku lang.                    |
+| --connection=mysql           | Wskazuje połączenie bazodanowe (domyślnie mysql).            |
+| --all                        | Generuje pliki lang dla wszystkich tabel w danym połączeniu. |
+| --force                      | Nadpisuje istniejące pliki lang.                             |
 
 
 ## update

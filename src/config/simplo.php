@@ -15,6 +15,7 @@ return [
      */
     'model_template_path' => base_path('vendor/simplysmart/simplo/src/resources/templates/model.php.stub'),
     'request_template_path'=> base_path('vendor/simplysmart/simplo/src/resources/templates/request.php.stub'),
+    'lang_template_path'=> base_path('vendor/simplysmart/simplo/src/resources/templates/lang.php.stub'),
 
     /**
      * Pełna nazwa pakietu (np. vendor/nazwa).

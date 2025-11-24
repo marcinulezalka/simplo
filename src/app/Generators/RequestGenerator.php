@@ -5,9 +5,8 @@
 
 namespace Simplysmart\Simplo\App\Generators;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-// use Illuminate\Validation\Rule;
+use Simplysmart\Simplo\App\Services\SchemaInspector;
 
 /**
  * Class RequestGenerator
@@ -26,14 +25,19 @@ use Illuminate\Support\Str;
 class RequestGenerator
 {
     /**
-     * Nazwa połączenia bazodanowego.
+     * Nazwa połączenia bazodanowego używanego do inspekcji schematu.
+     *
+     * Określa, z którego connection (np. `mysql`, `pgsql`) korzysta serwis
+     * przy pobieraniu definicji kolumn tabeli.
      *
      * @var string
      */
     protected string $connection;
 
     /**
-     * Ścieżka docelowa dla wygenerowanych plików.
+     * Ścieżka docelowa do zapisu wygenerowanych plików FormRequest.
+     *
+     * Domyślnie: `app/Http/Requests`.
      *
      * @var string
      */
@@ -42,21 +46,35 @@ class RequestGenerator
     /**
      * Lista pól wykluczonych z walidacji.
      *
+     * Pobierana z konfiguracji `config('simplo.exclude.validation', [])`.
+     * Może zawierać np. pola systemowe, których nie chcemy walidować.
+     *
      * @var array
      */
     protected array $excluded;
 
     /**
-     * Konstruktor generatora.
+     * Serwis SchemaInspector odpowiedzialny za analizę schematu bazy danych.
      *
-     * @param string $connection Nazwa połączenia bazodanowego (domyślnie mysql).
-     * @param string $outputPath Ścieżka docelowa (domyślnie app/Http/Requests).
+     * Wykorzystywany do pobierania kolumn, typów i komentarzy,
+     * które następnie są mapowane na reguły walidacji.
+     *
+     * @var SchemaInspector
+     */
+    protected SchemaInspector $inspector;
+
+    /**
+     * Konstruktor generatora FormRequest.
+     *
+     * @param string $connection Nazwa połączenia bazodanowego (domyślnie: mysql).
+     * @param string $outputPath Ścieżka docelowa do katalogu requestów (domyślnie: app/Http/Requests).
      */
     public function __construct(string $connection = 'mysql', string $outputPath = '')
     {
         $this->connection = $connection;
         $this->outputPath = $outputPath ?: app_path('Http/Requests');
-        $this->excluded = config('simplo.exclude.validation', []);
+        $this->excluded   = config('simplo.exclude.validation', []);
+        $this->inspector  = new SchemaInspector($connection);
     }
 
     /**
@@ -84,48 +102,35 @@ class RequestGenerator
 
     /**
      * Generuje kod klasy FormRequest dla wskazanej tabeli.
-     *
-     * @param string $table Nazwa tabeli.
-     * @param string $type Typ requestu (store|update).
-     * @return string Kod PHP klasy.
      */
     public function generateRequest(string $table, string $type): string
     {
-        $columns = $this->getTableColumns($table);
-        $className = $this->getRequestClassName($table, $type);
-        $namespace = $this->getNamespace($table);
-        $rules = $this->generateRules($columns, $table, $type);
-        $comments = $this->generateCommentedFields($columns);
-        $messages = $this->generateMessages($columns, $table);
+        $columns       = $this->inspector->getColumns($table);
+        $className     = $this->getRequestClassName($table, $type);
+        $namespace     = $this->getNamespace($table);
+        $rules         = $this->generateRules($columns, $table, $type);
+        $comments      = $this->generateCommentedFields($columns);
+        $messages      = $this->generateMessages($columns, $table);
         $booleanFields = $this->generateBooleanFields($columns);
 
         return $this->renderTemplate([
-            'namespace' => $namespace,
-            'class' => $className,
-            'rules' => $rules,
-            'messages' => $messages,
-            'comments' => $comments,
+            'namespace'     => $namespace,
+            'class'         => $className,
+            'rules'         => $rules,
+            'messages'      => $messages,
+            'comments'      => $comments,
             'booleanFields' => $booleanFields,
         ]);
     }
 
     /**
-     * Pobiera definicję kolumn dla tabeli.
+     * Buduje nazwę klasy requestu na podstawie tabeli i typu.
+     *
+     * Przykład: dla tabeli `users` i typu `store` wygeneruje `StoreUserRequest`.
      *
      * @param string $table Nazwa tabeli.
-     * @return array Lista kolumn.
-     */
-    protected function getTableColumns(string $table): array
-    {
-        return DB::connection($this->connection)->select("SHOW FULL COLUMNS FROM `$table`");
-    }
-
-    /**
-     * Buduje nazwę klasy requestu.
-     *
-     * @param string $table Nazwa tabeli.
-     * @param string $type Typ requestu (store|update).
-     * @return string Nazwa klasy.
+     * @param string $type Typ requestu (`store` lub `update`).
+     * @return string Nazwa klasy FormRequest.
      */
     protected function getRequestClassName(string $table, string $type): string
     {
@@ -133,15 +138,17 @@ class RequestGenerator
     }
 
     /**
-     * Buduje namespace dla klasy requestu.
+     * Buduje namespace dla klasy requestu na podstawie nazwy tabeli.
+     *
+     * Przykład: dla tabeli `elmts_users` wygeneruje `App\Http\Requests\Elmts\Users`.
      *
      * @param string $table Nazwa tabeli.
-     * @return string Namespace.
+     * @return string Namespace klasy FormRequest.
      */
     protected function getNamespace(string $table): string
     {
         $segments = explode('_', $table);
-        $domain = Str::studly($segments[0] ?? 'App');
+        $domain   = Str::studly($segments[0] ?? 'App');
         $resource = Str::studly(Str::plural(end($segments)));
 
         return "App\\Http\\Requests\\$domain\\$resource";
@@ -150,33 +157,35 @@ class RequestGenerator
     /**
      * Generuje komunikaty walidacyjne dla pól tabeli.
      *
-     * @param array $columns Lista kolumn.
+     * Tworzy wpisy w metodzie `messages()` w formacie:
+     * `'field.rule' => text('namespace::table.validation.field.rule')`.
+     *
+     * @param array $columns Lista kolumn tabeli (SHOW FULL COLUMNS).
      * @param string $table Nazwa tabeli.
-     * @return string Kod komunikatów.
+     * @return string Kod komunikatów walidacyjnych.
      */
     protected function generateMessages(array $columns, string $table): string
     {
         $namespace = config('simplo.lang_namespace', 'simplo');
-        $messages = [];
+        $messages  = [];
 
         foreach ($columns as $column) {
             $field = $column->Field;
-
             if ($field === 'id') {
                 continue;
             }
 
             $rules = [];
             $rules[] = $column->Null === 'YES' ? 'nullable' : 'required';
-            $rules[] = $this->mapToValidationType($column->Type, $field);
+            $rules[] = $this->inspector->mapToValidationType($column->Type, $field);
 
-            if ($max = $this->extractMaxLength($column->Type)) {
+            if ($max = $this->inspector->extractMaxLength($column->Type)) {
                 $rules[] = "max:$max";
             }
             if (Str::endsWith($field, '_id')) {
                 $rules[] = 'exists';
             }
-            if ($this->isEnum($column->Type)) {
+            if ($this->inspector->isEnum($column->Type)) {
                 $rules[] = 'in';
             }
             if ($column->Key === 'UNI') {
@@ -195,8 +204,10 @@ class RequestGenerator
     /**
      * Generuje listę pól boolean (is_*).
      *
-     * @param array $columns Lista kolumn.
-     * @return string Kod pól boolean.
+     * Tworzy tablicę pól typu boolean w metodzie `prepareForValidation()`.
+     *
+     * @param array $columns Lista kolumn tabeli.
+     * @return string Kod pól boolean lub komentarz jeśli brak.
      */
     protected function generateBooleanFields(array $columns): string
     {
@@ -209,12 +220,15 @@ class RequestGenerator
     }
 
     /**
-     * Generuje reguły walidacji dla tabeli.
+     * Generuje reguły walidacji dla wskazanej tabeli.
      *
-     * @param array $columns Lista kolumn.
+     * Tworzy zakomentowane linie w metodzie `rules()`, które można odkomentować
+     * i dostosować ręcznie.
+     *
+     * @param array $columns Lista kolumn tabeli.
      * @param string $table Nazwa tabeli.
-     * @param string $type Typ requestu.
-     * @return string Kod reguł.
+     * @param string $type Typ requestu (`store` lub `update`).
+     * @return string Kod reguł walidacyjnych.
      */
     protected function generateRules(array $columns, string $table, string $type): string
     {
@@ -225,33 +239,37 @@ class RequestGenerator
     }
 
     /**
-     * Formatuje pojedynczą regułę walidacji.
+     * Formatuje pojedynczą regułę walidacji dla kolumny.
      *
-     * @param object $column Definicja kolumny.
+     * Uwzględnia:
+     * - `nullable` / `required`,
+     * - typ walidacji (string, integer, boolean, array, date, enum),
+     * - maksymalną długość (`max`),
+     * - relacje (`exists`),
+     * - unikalność (`Rule::unique`).
+     *
+     * @param object $column Definicja kolumny (SHOW FULL COLUMNS).
      * @param string $table Nazwa tabeli.
-     * @param string $type Typ requestu.
-     * @return string Zakomentowana linia reguły.
+     * @param string $type Typ requestu (`store` lub `update`).
+     * @return string Zakomentowana linia reguły walidacyjnej.
      */
     protected function formatRule(object $column, string $table, string $type): string
     {
-        $name = $column->Field;
+        $name     = $column->Field;
         $nullable = $column->Null === 'YES';
-        $rules = $nullable ? ['nullable'] : ['required'];
+        $rules    = $nullable ? ['nullable'] : ['required'];
 
-        $rules[] = $this->mapToValidationType($column->Type, $name);
+        $rules[] = $this->inspector->mapToValidationType($column->Type, $name);
 
-        if ($max = $this->extractMaxLength($column->Type)) {
+        if ($max = $this->inspector->extractMaxLength($column->Type)) {
             $rules[] = "max:$max";
         }
-
         if (Str::endsWith($name, '_id')) {
             $rules[] = "exists:$table,$name";
         }
-
-        if ($this->isEnum($column->Type)) {
-            $rules[] = $this->generateEnumRule($column->Type);
+        if ($this->inspector->isEnum($column->Type)) {
+            $rules[] = $this->inspector->generateEnumRule($column->Type);
         }
-
         if ($column->Key === 'UNI') {
             $unique = "Rule::unique('$table', '$name')";
             if ($type === 'update') {
@@ -260,86 +278,16 @@ class RequestGenerator
             $rules[] = $unique;
         }
 
-        // 🔑 dodajemy apostrofy dla zwykłych reguł
-        $quoted = array_map(function ($rule) {
-            return str_starts_with($rule, 'Rule::')
-                ? $rule
-                : "'$rule'";
-        }, $rules);
+        $quoted = array_map(fn($rule) => str_starts_with($rule, 'Rule::') ? $rule : "'$rule'", $rules);
 
-        // cała linia zakomentowana
         return "            // '$name' => [" . implode(', ', $quoted) . "],";
     }
 
     /**
-     * Mapuje typ SQL oraz nazwę kolumny na regułę walidacji.
-     *
-     * Obsługuje:
-     * - pola json_* jako 'array' nawet jeśli typ to TEXT,
-     * - pola enum(...) jako 'string',
-     * - pola int jako 'integer' lub 'boolean' jeśli nazwa zaczyna się od is_,
-     * - pola bool jako 'boolean',
-     * - pola float/decimal jako 'numeric',
-     * - pola date/timestamp jako 'date',
-     * - pola json jako 'array',
-     * - inne jako 'string'.
-     *
-     * @param string $sqlType Typ SQL kolumny.
-     * @param string $name    Nazwa kolumny.
-     * @return string Reguła walidacji.
-     */
-    protected function mapToValidationType(string $sqlType, string $name): string
-    {
-        return match (true) {
-            Str::startsWith($name, 'json_') => 'array',
-            $this->isEnum($sqlType) => 'enum', // 👈 zmiana
-            str_contains($sqlType, 'int') => Str::startsWith($name, 'is_') ? 'boolean' : 'integer',
-            str_contains($sqlType, 'bool') => 'boolean',
-            str_contains($sqlType, 'float'), str_contains($sqlType, 'decimal') => 'numeric',
-            str_contains($sqlType, 'date'), str_contains($sqlType, 'timestamp') => 'date',
-            str_contains($sqlType, 'json') => 'array',
-            default => 'string',
-        };
-    }
-
-    /**
-     * Wyciąga maksymalną długość dla pól typu varchar.
-     *
-     * @param string $sqlType Typ SQL kolumny.
-     * @return int|null Maksymalna długość lub null jeśli brak.
-     */
-
-    protected function extractMaxLength(string $sqlType): ?int
-    {
-        return preg_match('/varchar\((\d+)\)/', $sqlType, $m) ? (int)$m[1] : null;
-    }
-
-    /**
-     * Sprawdza czy typ SQL jest typu enum.
-     *
-     * @param string $sqlType Typ SQL kolumny.
-     * @return bool True jeśli typ to enum, false w przeciwnym razie.
-     */
-    protected function isEnum(string $sqlType): bool
-    {
-        return str_starts_with($sqlType, 'enum(');
-    }
-
-    /**
-     * Generuje regułę walidacji Rule::in([...]) dla pola enum.
-     *
-     * @param string $sqlType Typ SQL kolumny (enum).
-     * @return string Reguła walidacji Rule::in([...]).
-     */
-    protected function generateEnumRule(string $sqlType): string
-    {
-        preg_match_all("/'([^']+)'/", $sqlType, $matches);
-        $values = $matches[1] ?? [];
-        return 'Rule::in([' . implode(', ', array_map(fn($v) => "'$v'", $values)) . '])';
-    }
-
-    /**
      * Generuje zakomentowaną listę pól z typem i komentarzem.
+     *
+     * Tworzy dokumentację pomocniczą w klasie requestu, np.:
+     * `// string $name // nazwa użytkownika`
      *
      * @param array $columns Lista kolumn tabeli.
      * @return string Zakomentowane pola z typem i opisem.
@@ -347,10 +295,10 @@ class RequestGenerator
     protected function generateCommentedFields(array $columns): string
     {
         return collect($columns)->map(function ($col) {
-            $type = $this->mapToValidationType($col->Type, $col->Field);
+            $type    = $this->inspector->mapToValidationType($col->Type, $col->Field);
             $comment = trim($col->Comment ?? '');
-            $enum = $this->isEnum($col->Type)
-                ? ' // enum: ' . implode(', ', $this->extractEnumValues($col->Type))
+            $enum    = $this->inspector->isEnum($col->Type)
+                ? ' // enum: ' . implode(', ', $this->inspector->extractEnumValues($col->Type))
                 : '';
 
             return "// $type \${$col->Field}" . ($comment ? " // $comment" : '') . $enum;
@@ -358,22 +306,13 @@ class RequestGenerator
     }
 
     /**
-     * Wyciąga wartości enum z definicji SQL.
-     *
-     * @param string $sqlType Typ SQL kolumny (enum).
-     * @return array Lista wartości enum.
-     */
-    protected function extractEnumValues(string $sqlType): array
-    {
-        preg_match_all("/'([^']+)'/", $sqlType, $matches);
-        return $matches[1] ?? [];
-    }
-
-    /**
      * Renderuje szablon requestu na podstawie danych.
      *
-     * @param array $data Dane do podstawienia w szablonie.
-     * @return string Kod PHP wygenerowanej klasy.
+     * Podstawia wartości do pliku szablonu (`request.stub`) w miejscach
+     * oznaczonych jako `{{ key }}`.
+     *
+     * @param array $data Dane do podstawienia w szablonie (namespace, class, rules, messages, comments, booleanFields).
+     * @return string Kod PHP wygenerowanej klasy FormRequest.
      *
      * @throws \RuntimeException Jeśli brak pliku szablonu.
      */

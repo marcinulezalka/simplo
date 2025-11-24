@@ -1,0 +1,28 @@
+<?php
+/*
+ * Copyright (c) 2014-2025. simplySMART
+ */
+
+/**
+ * Lang file from model
+ */
+
+return [
+    'sitemap' => [
+        // definiujemy sitemap translations w views.php
+    ],
+    'text' => [
+        'headers'=>[
+
+        ],
+
+{{ fields }}
+
+    ],
+    'action' => [
+    ],
+    'validation' => [
+    ],
+    'notification' => [
+    ],
+];

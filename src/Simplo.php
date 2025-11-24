@@ -49,6 +49,9 @@ class Simplo
         echo "\n📘 SIMPLO - dostępne komendy:\n\n";
         echo "  php simplo make:models [table] [--module=module1]   - generuje modele na podstawie bazy danych\n";
         echo "  php simplo make:request [table] [--module=module1]  - generuje FormRequesty na podstawie bazy danych\n";
+        echo "  php simplo make:lang [table] [--module=module1]     - generuje pliki lang na podstawie schematu bazy danych\n";
+        echo "      --all                                           - generuje pliki lang dla wszystkich tabel\n";
+        echo "      --connection=mysql                              - (opcjonalnie) wskazuje połączenie bazodanowe\n";
         echo "  php simplo update [package] [type]                  - aktualizuje wersję i publikuje zasoby\n";
         echo "  php simplo clear:env                                - czyści cache/config/route/view\n";
         echo "  php simplo publish:launcher [--force]               - publikuje plik uruchamiający do skeletona\n";
@@ -58,4 +61,5 @@ class Simplo
         echo "      --no-header                                     - (opcjonalnie) pomija nagłówki logów\n";
         echo "  php simplo help                                     - pokazuje tę pomoc\n\n";
     }
+
 }
