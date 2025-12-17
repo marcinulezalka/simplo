@@ -18,6 +18,11 @@ return [
     'lang_template_path'=> base_path('vendor/simplysmart/simplo/src/resources/templates/lang.php.stub'),
 
     /**
+     * Lista guardów wykorzystywana w systemie
+     */
+    'seeder_guards'=>['web'],
+
+    /**
      * Pełna nazwa pakietu (np. vendor/nazwa).
      * Używana do:
      * - Identyfikacji zasobów (Assets, Seederów)
@@ -32,7 +37,6 @@ return [
      * - Ścieżek do lang
      */
     'lang_namespace' => 'simplo-lang',
-
 
     /**
      * Nazwa modułu (biznesowa).

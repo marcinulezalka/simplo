@@ -1,7 +1,4 @@
 <?php
-/*
- * Copyright (c) 2014-2025. simplySMART
- */
 
 namespace Simplysmart\Simplo\App\Services;
 
@@ -9,36 +6,32 @@ use Illuminate\Filesystem\Filesystem;
 use RecursiveIteratorIterator;
 use RecursiveDirectoryIterator;
 use FilesystemIterator;
+use Simplysmart\Simplo\App\Contracts\ProgressReporterInterface;
 
 /**
  * Class DirectoryCopyWithProgressService
  *
  * Kopiuje katalog źródłowy do katalogu docelowego z paskiem postępu.
  * Obsługuje wykluczanie katalogów tymczasowych i tworzenie struktury docelowej.
- *
- * @package Simplysmart\Simplo\App\Services
  */
 class DirectoryCopyWithProgressService
 {
     protected Filesystem $fs;
+    protected ?ProgressReporterInterface $progressReporter;
 
-    /**
-     * Inicjalizuje usługę kopiowania katalogów.
-     *
-     * @param Filesystem|null $fs Instancja Laravelowego Filesystem (opcjonalna)
-     */
-    public function __construct(?Filesystem $fs = null)
+    public function __construct(?Filesystem $fs = null, ?ProgressReporterInterface $progressReporter = null)
     {
         $this->fs = $fs ?? new Filesystem();
+        $this->progressReporter = $progressReporter;
     }
 
     /**
-     * Kopiuje katalog źródłowy do katalogu docelowego z paskiem postępu.
+     * Kopiuje katalog źródłowy do katalogu docelowego.
      *
      * @param string $src Katalog źródłowy
      * @param string $dst Katalog docelowy
-     * @param string $label Etykieta operacji (np. 'smartpanel:tabler')
-     * @param array $excludeDirs Lista katalogów do pominięcia (np. ['views_temp'])
+     * @param string $label Etykieta operacji
+     * @param array $excludeDirs Lista katalogów do pominięcia
      * @return int Liczba skopiowanych plików
      */
     public function copy(string $src, string $dst, string $label = '', array $excludeDirs = []): int
@@ -51,18 +44,9 @@ class DirectoryCopyWithProgressService
             RecursiveIteratorIterator::SELF_FIRST
         );
 
-        $files = [];
-        foreach ($rii as $item) {
-            foreach ($excludeDirs as $exclude) {
-                if (str_contains($item->getPathname(), DIRECTORY_SEPARATOR . $exclude . DIRECTORY_SEPARATOR)) {
-                    continue 2;
-                }
-            }
-
-            if ($item->isFile()) {
-                $files[] = $item;
-            }
-        }
+        $files = array_filter(iterator_to_array($rii), function ($item) use ($excludeDirs) {
+            return $item->isFile() && !$this->shouldExclude($item->getPathname(), $excludeDirs);
+        });
 
         $total = count($files);
         $done = 0;
@@ -72,9 +56,20 @@ class DirectoryCopyWithProgressService
             $this->fs->ensureDirectoryExists(dirname($targetPath));
             $this->fs->copy($item->getPathname(), $targetPath);
             $done++;
-            ProgressService::show($done, $total, $label);
+
+            $this->progressReporter?->report($done, $total, $label);
         }
 
         return $total;
+    }
+
+    private function shouldExclude(string $path, array $excludeDirs): bool
+    {
+        foreach ($excludeDirs as $exclude) {
+            if (str_contains($path, DIRECTORY_SEPARATOR . $exclude . DIRECTORY_SEPARATOR)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

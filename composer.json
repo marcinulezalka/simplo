@@ -1,6 +1,6 @@
 {
     "name": "simplysmart/simplo",
-    "type": "project",
+    "type": "library",
     "description": "The cli application for the simplySMART framework",
     "keywords": ["simplySMART", "simplo", "cli"],
     "license": "MIT",
@@ -11,7 +11,15 @@
         }
     ],
     "require": {
-        "php": "^8.3"
+        "php": "^8.3",
+        "spatie/laravel-permission": "^6.0",
+        "illuminate/support": "^11.0 || ^12.0"
+    },
+    "require-dev": {
+        "laravel/framework": "^11.0 || ^12.0"
+    },
+    "suggest": {
+        "laravel/framework": "Simplo działa jako rozszerzenie w aplikacji Laravel skeleton (11 lub 12)"
     },
     "autoload": {
         "psr-4": {

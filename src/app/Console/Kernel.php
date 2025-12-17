@@ -25,13 +25,15 @@ class Kernel
      * @var array<string, class-string<CommandInterface>>
      */
     protected array $commands = [
+        'clear:env' => \Simplysmart\Simplo\App\Console\Commands\ClearEnvCommand::class,
         'make:lang' => \Simplysmart\Simplo\App\Console\Commands\MakeLangCommand::class,
         'make:models' => \Simplysmart\Simplo\App\Console\Commands\MakeModelsCommand::class,
         'make:request' => \Simplysmart\Simplo\App\Console\Commands\MakeRequestCommand::class,
-        'update' => \Simplysmart\Simplo\App\Console\Commands\UpdateCommand::class,
-        'clear:env' => \Simplysmart\Simplo\App\Console\Commands\ClearEnvCommand::class,
         'publish:launcher' => \Simplysmart\Simplo\App\Console\Commands\PublishLauncherCommand::class,
+        'publish:vendor' => \Simplysmart\Simplo\App\Console\Commands\PublishVendorCommand::class,
+        'sync:permission' => \Simplysmart\Simplo\App\Console\Commands\SyncPermissionCommand::class,
         'theme:publish' => \Simplysmart\Simplo\App\Console\Commands\ThemePublishCommand::class,
+        'update' => \Simplysmart\Simplo\App\Console\Commands\UpdateCommand::class,
     ];
 
     /**
